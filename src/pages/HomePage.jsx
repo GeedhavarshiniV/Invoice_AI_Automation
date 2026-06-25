@@ -1,0 +1,429 @@
+import React, { useState } from "react";
+import InvoicesPage from "./InvoicesPage";
+import ClientsPage from "./ClientsPage";
+import AIAgentPage from "./AIAgentPage";
+import ReportsPage from "./ReportsPage";
+import SettingsPage from "./SettingsPage";
+import SmartExtensionPage from "./SmartExtensionPage";
+import InvoiceTrackerPage from "./InvoiceTrackerPage";
+import DeadlineMessagesPage from "./DeadlineMessagesPage";
+import FraudDetectorPage from "./FraudDetectorPage";
+
+const STATS = [
+  { label: "Total Revenue", value: "₹2,48,500", change: "+12.4%", up: true, icon: "💰", color: "#5B2A9E" },
+  { label: "Paid Invoices", value: "84", change: "+8 this month", up: true, icon: "✅", color: "#16A34A" },
+  { label: "Pending", value: "23", change: "₹64,200 due", up: false, icon: "⏳", color: "#D97706" },
+  { label: "Overdue", value: "6", change: "Action needed", up: false, icon: "🚨", color: "#DC2626" },
+];
+
+const INVOICES = [
+  { id: "INV-1041", client: "Arjun Sharma", amount: "₹18,500", due: "Jun 25, 2026", status: "Pending", avatar: "AS" },
+  { id: "INV-1040", client: "Priya Nair", amount: "₹42,000", due: "Jun 20, 2026", status: "Overdue", avatar: "PN" },
+  { id: "INV-1039", client: "Karthik Rajan", amount: "₹9,750", due: "Jun 18, 2026", status: "Paid", avatar: "KR" },
+  { id: "INV-1038", client: "Meena Iyer", amount: "₹31,200", due: "Jun 15, 2026", status: "Paid", avatar: "MI" },
+  { id: "INV-1037", client: "Vikram Menon", amount: "₹14,800", due: "Jun 12, 2026", status: "Disputed", avatar: "VM" },
+  { id: "INV-1036", client: "Sneha Pillai", amount: "₹22,500", due: "Jun 10, 2026", status: "Paid", avatar: "SP" },
+];
+
+const ACTIVITIES = [
+  { icon: "💬", text: "Arjun Sharma requested a 7-day payment extension", time: "2 mins ago", color: "#5B2A9E" },
+  { icon: "✅", text: "Invoice INV-1039 marked as paid by Karthik Rajan", time: "1 hour ago", color: "#16A34A" },
+  { icon: "🚨", text: "INV-1040 is overdue by 2 days — AI agent sent reminder", time: "3 hours ago", color: "#DC2626" },
+  { icon: "🤖", text: "AI agent resolved dispute for Vikram Menon — partial refund approved", time: "Yesterday", color: "#0EA5E9" },
+  { icon: "📨", text: "3 new invoices sent to clients automatically", time: "Yesterday", color: "#D97706" },
+];
+
+const BAR_DATA = [
+  { month: "Jan", value: 65 }, { month: "Feb", value: 80 }, { month: "Mar", value: 55 },
+  { month: "Apr", value: 90 }, { month: "May", value: 75 }, { month: "Jun", value: 95 },
+];
+
+const STATUS_COLOR = {
+  Paid:     { bg: "#DCFCE7", color: "#15803D" },
+  Pending:  { bg: "#FEF9C3", color: "#A16207" },
+  Overdue:  { bg: "#FEE2E2", color: "#B91C1C" },
+  Disputed: { bg: "#EDE9FE", color: "#6D28D9" },
+};
+
+const RISK_ALERTS = [
+  { name: "Divya Krishnan", avatar: "DK", risk: 81, reason: "Invoice unopened 9 days, repeated late pattern", amount: "₹67,000" },
+  { name: "Priya Nair", avatar: "PN", risk: 72, reason: "3 of last 4 invoices paid 10+ days late", amount: "₹42,000" },
+];
+
+export default function HomePage({ user, onLogout }) {
+  const [activeNav, setActiveNav] = useState("Dashboard");
+  const [search, setSearch] = useState("");
+
+  const filtered = INVOICES.filter(inv =>
+    inv.client.toLowerCase().includes(search.toLowerCase()) ||
+    inv.id.toLowerCase().includes(search.toLowerCase()) ||
+    inv.status.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const navItems = [
+    { icon: "📊", label: "Dashboard" },
+    { icon: "📄", label: "Invoices" },
+    { icon: "👥", label: "Clients" },
+    { icon: "🤖", label: "AI Agent" },
+    { icon: "🗓", label: "Extensions" },
+    { icon: "🔍", label: "Tracker" },
+    { icon: "⏰", label: "Messages" },
+    { icon: "🛡️", label: "Fraud Check" },
+    { icon: "📈", label: "Reports" },
+    { icon: "⚙️", label: "Settings" },
+  ];
+
+  return (
+    <div style={styles.page}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+        * { box-sizing: border-box; }
+        body { margin: 0; }
+
+        @keyframes fadeUp { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+        @keyframes barAnim { from{height:0;} to{height:var(--h);} }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+        .stat-card { animation: fadeUp 0.5s ease both; }
+        .stat-card:nth-child(1){animation-delay:0.05s}
+        .stat-card:nth-child(2){animation-delay:0.10s}
+        .stat-card:nth-child(3){animation-delay:0.15s}
+        .stat-card:nth-child(4){animation-delay:0.20s}
+
+        .nav-item {
+          display:flex; align-items:center; gap:12px; padding:11px 16px;
+          border-radius:10px; cursor:pointer; font-size:14px; font-weight:500;
+          color:rgba(255,255,255,0.7); transition:background 0.15s, color 0.15s;
+          margin-bottom:2px;
+        }
+        .nav-item:hover { background:rgba(255,255,255,0.1); color:#fff; }
+        .nav-item.active { background:rgba(255,148,114,0.25); color:#FF9472; font-weight:600; }
+
+        .action-btn {
+          padding:9px 18px; border-radius:8px; border:none; cursor:pointer;
+          font-family:'Inter',sans-serif; font-size:13.5px; font-weight:600;
+          transition:transform 0.12s, box-shadow 0.12s, filter 0.12s;
+        }
+        .action-btn:hover { transform:translateY(-1px); filter:brightness(1.08); }
+        .action-btn.primary { background:linear-gradient(120deg,#FF6B81,#FF9472); color:#fff; box-shadow:0 6px 16px rgba(255,107,129,0.3); }
+        .action-btn.secondary { background:#fff; color:#2A1149; border:1.5px solid #E2E8F4; }
+
+        .search-input {
+          width:100%; padding:10px 16px 10px 40px; border-radius:9px;
+          border:1.5px solid #E2E8F4; background:#F7F9FC;
+          font-family:'Inter',sans-serif; font-size:14px; color:#2A3554; outline:none;
+          transition:border-color 0.18s, box-shadow 0.18s;
+        }
+        .search-input:focus { border-color:#FF9472; box-shadow:0 0 0 4px rgba(255,148,114,0.12); background:#fff; }
+        .search-input::placeholder { color:#9AA7C2; }
+
+        .inv-row { transition:background 0.15s; }
+        .inv-row:hover { background:#F7F0FF; }
+
+        .ai-badge { animation:pulse 2s ease-in-out infinite; }
+
+        ::-webkit-scrollbar { width:6px; }
+        ::-webkit-scrollbar-track { background:#F4F7FC; }
+        ::-webkit-scrollbar-thumb { background:#D0BDF4; border-radius:6px; }
+      `}</style>
+
+      <div style={styles.shell}>
+        {/* SIDEBAR */}
+        <div style={styles.sidebar}>
+          <div style={styles.sidebarTop}>
+            <div style={styles.logoRow}>
+              <div style={styles.logoIcon}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="2" width="18" height="20" rx="2" stroke="#FFB199" strokeWidth="1.7"/>
+                  <line x1="7" y1="7" x2="17" y2="7" stroke="#FFB199" strokeWidth="1.7" strokeLinecap="round"/>
+                  <line x1="7" y1="11" x2="17" y2="11" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
+                  <line x1="7" y1="15" x2="13" y2="15" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <span style={styles.logoText}>Ledgerly</span>
+            </div>
+          </div>
+
+          <div style={styles.sidebarNav}>
+            <p style={styles.navSection}>MAIN MENU</p>
+            {navItems.map(item => (
+              <div
+                key={item.label}
+                className={`nav-item${activeNav === item.label ? " active" : ""}`}
+                onClick={() => setActiveNav(item.label)}
+              >
+                <span style={{ fontSize: 16 }}>{item.icon}</span>
+                <span>{item.label}</span>
+                {item.label === "AI Agent" && (
+                  <span className="ai-badge" style={{ marginLeft: "auto", background: "#FF6B81", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>LIVE</span>
+                )}
+                {item.label === "Extensions" && (
+                  <span style={{ marginLeft: "auto", background: "#5B2A9E", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>NEW</span>
+                )}
+                {item.label === "Messages" && (
+                  <span style={{ marginLeft: "auto", background: "#FF6B81", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>NEW</span>
+                )}
+                {item.label === "Tracker" && (
+                  <span style={{ marginLeft: "auto", background: "#0EA5E9", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>NEW</span>
+                )}
+                {item.label === "Fraud Check" && (
+                  <span style={{ marginLeft: "auto", background: "#DC2626", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>NEW</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div style={styles.sidebarBottom}>
+            <div style={styles.userRow}>
+              <div style={styles.userAvatar}>
+                {user?.name?.split(" ").map(w => w[0]).join("").slice(0, 2)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={styles.userName}>{user?.name || "Admin"}</p>
+                <p style={styles.userEmail}>{user?.email || ""}</p>
+              </div>
+              <button onClick={onLogout} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.5)", fontSize: 18, padding: 4 }} title="Logout">⏻</button>
+            </div>
+          </div>
+        </div>
+
+        {/* MAIN CONTENT */}
+        <div style={styles.main}>
+          {activeNav === "Invoices"    && <InvoicesPage onNavigate={setActiveNav} />}
+          {activeNav === "Clients"     && <ClientsPage />}
+          {activeNav === "AI Agent"    && <AIAgentPage />}
+          {activeNav === "Extensions"  && <SmartExtensionPage />}
+          {activeNav === "Tracker"     && <InvoiceTrackerPage />}
+          {activeNav === "Messages"    && <DeadlineMessagesPage />}
+          {activeNav === "Fraud Check" && <FraudDetectorPage />}
+          {activeNav === "Reports"     && <ReportsPage />}
+          {activeNav === "Settings"    && <SettingsPage user={user} />}
+
+          {activeNav === "Dashboard" && <>
+            {/* TOPBAR */}
+            <div style={styles.topbar}>
+              <div>
+                <h1 style={styles.pageTitle}>Dashboard</h1>
+                <p style={styles.pageSubtitle}>Monday, June 22, 2026 · Welcome back, {user?.name?.split(" ")[0] || "Admin"} 👋</p>
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <button className="action-btn secondary">+ New Invoice</button>
+                <button className="action-btn primary">🤖 Ask AI Agent</button>
+              </div>
+            </div>
+
+            {/* STAT CARDS */}
+            <div style={styles.statsGrid}>
+              {STATS.map((s, i) => (
+                <div key={i} className="stat-card" style={styles.statCard}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <p style={styles.statLabel}>{s.label}</p>
+                      <p style={styles.statValue}>{s.value}</p>
+                      <p style={{ fontSize: 12.5, color: s.up ? "#16A34A" : "#DC2626", fontWeight: 500, margin: 0 }}>
+                        {s.up ? "↑" : "↓"} {s.change}
+                      </p>
+                    </div>
+                    <div style={{ ...styles.statIcon, background: `${s.color}18` }}>
+                      <span style={{ fontSize: 22 }}>{s.icon}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={styles.twoCol}>
+              {/* INVOICE TABLE */}
+              <div style={{ ...styles.card, flex: 1.6 }}>
+                <div style={styles.cardHeader}>
+                  <h2 style={styles.cardTitle}>Recent Invoices</h2>
+                  <div style={{ position: "relative", width: 220 }}>
+                    <span style={{ position: "absolute", left: 12, top: 11, fontSize: 14, color: "#9AA7C2" }}>🔍</span>
+                    <input className="search-input" placeholder="Search invoices..." value={search} onChange={e => setSearch(e.target.value)} />
+                  </div>
+                </div>
+                <table style={styles.table}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #F0EAF8" }}>
+                      {["Invoice", "Client", "Amount", "Due Date", "Status", "Action"].map(h => (
+                        <th key={h} style={styles.th}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((inv, i) => (
+                      <tr key={i} className="inv-row" style={{ borderBottom: "1px solid #F4F0FC" }}>
+                        <td style={styles.td}><span style={{ fontWeight: 600, color: "#5B2A9E", fontSize: 13 }}>{inv.id}</span></td>
+                        <td style={styles.td}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                            <div style={{ ...styles.avatar, background: `hsl(${inv.client.charCodeAt(0) * 5 % 360},60%,72%)` }}>{inv.avatar}</div>
+                            <span style={{ fontWeight: 500, fontSize: 13.5 }}>{inv.client}</span>
+                          </div>
+                        </td>
+                        <td style={styles.td}><span style={{ fontWeight: 600, fontSize: 13.5 }}>{inv.amount}</span></td>
+                        <td style={styles.td}><span style={{ fontSize: 13, color: "#6B7894" }}>{inv.due}</span></td>
+                        <td style={styles.td}>
+                          <span style={{ ...styles.statusBadge, background: STATUS_COLOR[inv.status].bg, color: STATUS_COLOR[inv.status].color }}>
+                            {inv.status}
+                          </span>
+                        </td>
+                        <td style={styles.td}>
+                          <button style={{ background: "none", border: "1.5px solid #E2E8F4", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#5B2A9E", cursor: "pointer" }}>
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* RIGHT COLUMN */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 20, flex: 1 }}>
+                {/* REVENUE CHART */}
+                <div style={styles.card}>
+                  <h2 style={styles.cardTitle}>Monthly Revenue</h2>
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 100, marginTop: 16 }}>
+                    {BAR_DATA.map((b, i) => (
+                      <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                        <div style={{
+                          width: "100%",
+                          background: b.value === 95 ? "linear-gradient(180deg,#FF6B81,#FF9472)" : "linear-gradient(180deg,#DDD6FE,#C4B5FD)",
+                          borderRadius: "5px 5px 0 0",
+                          height: `${b.value}%`,
+                          transition: "height 0.6s ease",
+                        }} />
+                        <span style={{ fontSize: 11, color: "#9AA7C2", fontWeight: 500 }}>{b.month}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* AI AGENT PANEL */}
+                <div style={{ ...styles.card, background: "linear-gradient(135deg,#1A1140,#3B1F73)", color: "#fff" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <span style={{ fontSize: 22 }}>🤖</span>
+                    <div>
+                      <h2 style={{ ...styles.cardTitle, color: "#fff", margin: 0 }}>AI Resolution Agent</h2>
+                      <span className="ai-badge" style={{ fontSize: 11, color: "#FF9472", fontWeight: 600 }}>● ACTIVE</span>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {[
+                      { label: "Requests handled today", value: "12" },
+                      { label: "Extensions approved", value: "4" },
+                      { label: "Disputes resolved", value: "2" },
+                      { label: "Escalated to admin", value: "1" },
+                    ].map((item, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.75)" }}>{item.label}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#FF9472" }}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    className="action-btn"
+                    onClick={() => setActiveNav("AI Agent")}
+                    style={{ marginTop: 14, width: "100%", background: "rgba(255,148,114,0.2)", color: "#FFB199", border: "1px solid rgba(255,148,114,0.3)", borderRadius: 9, padding: "10px 0", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    View Agent Logs →
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* RISK EARLY WARNING ALERTS */}
+            {RISK_ALERTS.length > 0 && (
+              <div style={{ ...styles.card, marginTop: 20, border: "1.5px solid #FEE2E2" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>🚨</span>
+                    <h2 style={styles.cardTitle}>Risk Early Warnings</h2>
+                  </div>
+                  <button onClick={() => setActiveNav("Clients")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "#5B2A9E" }}>
+                    View all in Clients →
+                  </button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {RISK_ALERTS.map((r, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: "#FFF8F8", borderRadius: 10, border: "1px solid #FEE2E2" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ ...styles.avatar, background: `hsl(${r.name.charCodeAt(0) * 5 % 360},60%,72%)` }}>{r.avatar}</div>
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 700, fontSize: 13.5, color: "#1A1140" }}>{r.name} <span style={{ color: "#9AA7C2", fontWeight: 500 }}>· {r.amount}</span></p>
+                          <p style={{ margin: "2px 0 0", fontSize: 12, color: "#B91C1C" }}>{r.reason}</p>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, marginLeft: 12 }}>
+                        <span style={{ ...styles.statusBadge, background: "#FEE2E2", color: "#DC2626" }}>Risk {r.risk}</span>
+                        <button onClick={() => setActiveNav("Extensions")} style={{ background: "none", border: "1.5px solid #5B2A9E", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#5B2A9E", cursor: "pointer" }}>
+                          Extend →
+                        </button>
+                        <button onClick={() => setActiveNav("Tracker")} style={{ background: "none", border: "1.5px solid #0EA5E9", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#0EA5E9", cursor: "pointer" }}>
+                          Track →
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ACTIVITY FEED */}
+            <div style={{ ...styles.card, marginTop: 20 }}>
+              <h2 style={styles.cardTitle}>Recent Activity</h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {ACTIVITIES.map((act, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "13px 0", borderBottom: i < ACTIVITIES.length - 1 ? "1px solid #F4F0FC" : "none" }}>
+                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${act.color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16 }}>
+                      {act.icon}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: "0 0 2px", fontSize: 13.5, color: "#2A3554", fontWeight: 500 }}>{act.text}</p>
+                      <p style={{ margin: 0, fontSize: 12, color: "#9AA7C2" }}>{act.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const styles = {
+  page: { minHeight: "100vh", background: "#F4F7FC", fontFamily: "'Inter',sans-serif" },
+  shell: { display: "flex", minHeight: "100vh" },
+  sidebar: { width: 240, background: "linear-gradient(180deg,#1A1140 0%,#3B1F73 100%)", display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, height: "100vh", zIndex: 100 },
+  sidebarTop: { padding: "24px 20px 16px" },
+  logoRow: { display: "flex", alignItems: "center", gap: 10 },
+  logoIcon: { width: 34, height: 34, borderRadius: 9, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.28)", display: "flex", alignItems: "center", justifyContent: "center" },
+  logoText: { fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 18, color: "#fff", letterSpacing: "-0.3px" },
+  sidebarNav: { flex: 1, padding: "8px 12px", overflowY: "auto" },
+  navSection: { fontSize: 10.5, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "1.2px", padding: "0 4px", margin: "8px 0 6px" },
+  sidebarBottom: { padding: "16px 12px", borderTop: "1px solid rgba(255,255,255,0.1)" },
+  userRow: { display: "flex", alignItems: "center", gap: 10 },
+  userAvatar: { width: 34, height: 34, borderRadius: "50%", background: "rgba(255,148,114,0.3)", border: "2px solid #FF9472", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#FF9472", flexShrink: 0 },
+  userName: { margin: 0, fontSize: 13, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  userEmail: { margin: 0, fontSize: 11, color: "rgba(255,255,255,0.45)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  main: { marginLeft: 240, flex: 1, padding: "28px 32px", minHeight: "100vh" },
+  topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 26 },
+  pageTitle: { fontFamily: "'Space Grotesk',sans-serif", fontSize: 24, fontWeight: 700, color: "#1A1140", margin: 0, letterSpacing: "-0.4px" },
+  pageSubtitle: { fontSize: 13.5, color: "#6B7894", margin: "4px 0 0" },
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 18, marginBottom: 22 },
+  statCard: { background: "#fff", borderRadius: 14, padding: "20px 22px", boxShadow: "0 2px 12px rgba(91,42,158,0.08)", border: "1px solid #F0EAF8" },
+  statLabel: { fontSize: 12.5, color: "#6B7894", fontWeight: 600, letterSpacing: "0.3px", margin: "0 0 6px", textTransform: "uppercase" },
+  statValue: { fontFamily: "'Space Grotesk',sans-serif", fontSize: 28, fontWeight: 700, color: "#1A1140", margin: "0 0 4px", letterSpacing: "-0.5px" },
+  statIcon: { width: 48, height: 48, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" },
+  twoCol: { display: "flex", gap: 20 },
+  card: { background: "#fff", borderRadius: 14, padding: "22px 24px", boxShadow: "0 2px 12px rgba(91,42,158,0.08)", border: "1px solid #F0EAF8" },
+  cardHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  cardTitle: { fontFamily: "'Space Grotesk',sans-serif", fontSize: 16, fontWeight: 700, color: "#1A1140", margin: 0 },
+  table: { width: "100%", borderCollapse: "collapse" },
+  th: { textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "#9AA7C2", textTransform: "uppercase", letterSpacing: "0.5px", padding: "0 12px 12px 0" },
+  td: { padding: "12px 12px 12px 0", fontSize: 13.5, color: "#2A3554", verticalAlign: "middle" },
+  avatar: { width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 },
+  statusBadge: { padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" },
+};
