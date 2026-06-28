@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { downloadInvoicePDF } from "../utils/generateInvoicePDF";
 
 const ALL_INVOICES = [
   { id: "INV-1041", client: "Arjun Sharma", email: "arjun@sharma.com", amount: 18500, due: "Jun 25, 2026", issued: "Jun 10, 2026", status: "Pending", avatar: "AS", items: 3 },
@@ -238,6 +239,11 @@ export default function InvoicesPage({ onNavigate }) {
                       onMouseOut={e=>e.currentTarget.style.borderColor="#E2E8F4"}>
                       View
                     </button>
+                    <button onClick={() => downloadInvoicePDF(inv)} title={`Download ${inv.id} as PDF`} style={{ background:"none", border:"1.5px solid #E2E8F4", borderRadius:7, padding:"5px 12px", fontSize:12, fontWeight:600, color:"#5B2A9E", cursor:"pointer", transition:"all 0.15s" }}
+                      onMouseOver={e=>e.currentTarget.style.borderColor="#A78BFA"}
+                      onMouseOut={e=>e.currentTarget.style.borderColor="#E2E8F4"}>
+                      ⬇ PDF
+                    </button>
                     {(inv.status === "Pending" || inv.status === "Overdue") && (
                       <button style={{ background:"none", border:"1.5px solid #FCA5A5", borderRadius:7, padding:"5px 12px", fontSize:12, fontWeight:600, color:"#DC2626", cursor:"pointer" }}>
                         Remind
@@ -335,7 +341,7 @@ export default function InvoicesPage({ onNavigate }) {
             </div>
             <div style={{ display:"flex", gap:10 }}>
               <button className="action-btn ghost" style={{ flex:1 }}>📤 Send Reminder</button>
-              <button className="action-btn ghost" style={{ flex:1 }}>⬇ Download PDF</button>
+              <button onClick={() => downloadInvoicePDF(viewInvoice)} className="action-btn ghost" style={{ flex:1 }}>⬇ Download PDF</button>
               <button className="action-btn primary" style={{ flex:1 }}>✏️ Edit</button>
             </div>
           </div>

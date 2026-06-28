@@ -13,84 +13,12 @@ const RISK_LEVEL = (score) => {
   return { label: "Clean", bg: "#DCFCE7", color: "#15803D", dot: "#16A34A" };
 };
 
-const FLAGGED_INVOICES = [
-  {
-    id: "INV-1044",
-    client: "Rohan Desai",
-    avatar: "RD",
-    amount: "₹1,85,000",
-    due: "Jun 28, 2026",
-    status: "Pending",
-    score: 87,
-    isNewClient: true,
-    signals: [
-      { type: "Bank details changed", detail: "Payout account changed 2 days before this invoice was issued — no prior change in 14 months on file.", weight: "high" },
-      { type: "Unusual amount", detail: "₹1,85,000 is 9.4x this client's average invoice of ₹19,600.", weight: "high" },
-      { type: "New client, high value", detail: "Client added 6 days ago. First invoice exceeds typical new-client threshold.", weight: "medium" },
-    ],
-    history: [
-      { event: "Client added", time: "Jun 19, 2026 · 10:02 AM" },
-      { event: "Bank account updated", time: "Jun 22, 2026 · 4:41 PM" },
-      { event: "Invoice INV-1044 created", time: "Jun 24, 2026 · 9:15 AM" },
-      { event: "Amount edited ₹95,000 → ₹1,85,000", time: "Jun 24, 2026 · 9:18 AM" },
-    ],
-  },
-  {
-    id: "INV-1040",
-    client: "Priya Nair",
-    avatar: "PN",
-    amount: "₹42,000",
-    due: "Jun 20, 2026",
-    status: "Overdue",
-    score: 48,
-    isNewClient: false,
-    signals: [
-      { type: "Duplicate invoice number pattern", detail: "INV-1040 shares an identical line-item structure with INV-1031, sent 11 days earlier.", weight: "medium" },
-      { type: "Edited after send", detail: "Due date pushed back twice after the invoice was issued.", weight: "low" },
-    ],
-    history: [
-      { event: "Invoice INV-1040 created", time: "Jun 18, 2026 · 11:30 AM" },
-      { event: "Due date edited", time: "Jun 19, 2026 · 8:02 AM" },
-      { event: "Due date edited again", time: "Jun 20, 2026 · 6:47 PM" },
-    ],
-  },
-  {
-    id: "INV-1042",
-    client: "Sanjay Bhatt",
-    avatar: "SB",
-    amount: "₹27,500",
-    due: "Jun 26, 2026",
-    status: "Pending",
-    score: 22,
-    isNewClient: false,
-    signals: [
-      { type: "Slight amount variance", detail: "₹27,500 is 1.6x this client's average — within normal range for this account.", weight: "low" },
-    ],
-    history: [
-      { event: "Invoice INV-1042 created", time: "Jun 23, 2026 · 2:10 PM" },
-    ],
-  },
-  {
-    id: "INV-1036",
-    client: "Sneha Pillai",
-    avatar: "SP",
-    amount: "₹22,500",
-    due: "Jun 10, 2026",
-    status: "Paid",
-    score: 6,
-    isNewClient: false,
-    signals: [],
-    history: [
-      { event: "Invoice INV-1036 created", time: "Jun 5, 2026 · 9:40 AM" },
-      { event: "Marked as paid", time: "Jun 10, 2026 · 3:20 PM" },
-    ],
-  },
-];
+const FLAGGED_INVOICES = [];
 
 const WEIGHT_COLOR = { high: "#DC2626", medium: "#D97706", low: "#6B7894" };
 
 export default function FraudDetectorPage() {
-  const [selectedId, setSelectedId] = useState(FLAGGED_INVOICES[0].id);
+  const [selectedId, setSelectedId] = useState(FLAGGED_INVOICES[0]?.id ?? null);
   const [filter, setFilter] = useState("All");
   const [decisions, setDecisions] = useState({});
 
@@ -321,6 +249,13 @@ export default function FraudDetectorPage() {
                   </button>
                 </div>
               )}
+            </div>
+          )}
+          {!selected && (
+            <div style={{ ...styles.card, textAlign: "center", padding: "64px 24px", color: "#9AA7C2" }}>
+              <p style={{ fontSize: 32, margin: "0 0 8px" }}>🛡️</p>
+              <p style={{ fontSize: 15, fontWeight: 600, color: "#4A5578", margin: "0 0 4px" }}>No flagged invoices</p>
+              <p style={{ fontSize: 13, margin: 0 }}>Fraud signals will appear here once connected to the backend.</p>
             </div>
           )}
         </div>

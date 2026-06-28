@@ -1,70 +1,6 @@
 import React, { useState } from "react";
 
-const CLIENTS = [
-  {
-    name: "Arjun Sharma", email: "arjun.sharma@mail.com", avatar: "AS", totalBilled: 84500, invoices: 6, risk: 18, lastPaid: "Jun 18, 2026",
-    factors: [
-      { label: "On-time payment rate", detail: "5 of last 6 invoices paid on time", impact: "low" },
-      { label: "Invoice engagement", detail: "Opens invoices within a day of sending", impact: "low" },
-    ],
-    action: null,
-  },
-  {
-    name: "Priya Nair", email: "priya.nair@mail.com", avatar: "PN", totalBilled: 156000, invoices: 9, risk: 72, lastPaid: "May 02, 2026",
-    factors: [
-      { label: "Late payment trend", detail: "3 of last 4 invoices paid 10+ days late", impact: "high" },
-      { label: "Invoice not opened", detail: "Current invoice unopened 6 days after sending", impact: "high" },
-      { label: "Communication gap", detail: "No reply to last reminder", impact: "medium" },
-    ],
-    action: "Send early check-in before due date — offer split payment proactively",
-  },
-  {
-    name: "Karthik Rajan", email: "karthik.r@mail.com", avatar: "KR", totalBilled: 41200, invoices: 4, risk: 8, lastPaid: "Jun 18, 2026",
-    factors: [
-      { label: "On-time payment rate", detail: "4 of 4 invoices paid on time", impact: "low" },
-    ],
-    action: null,
-  },
-  {
-    name: "Meena Iyer", email: "meena.iyer@mail.com", avatar: "MI", totalBilled: 98700, invoices: 7, risk: 22, lastPaid: "Jun 15, 2026",
-    factors: [
-      { label: "On-time payment rate", detail: "6 of 7 invoices paid on time", impact: "low" },
-      { label: "Invoice engagement", detail: "Normal opening pattern", impact: "low" },
-    ],
-    action: null,
-  },
-  {
-    name: "Vikram Menon", email: "vikram.m@mail.com", avatar: "VM", totalBilled: 67300, invoices: 5, risk: 58, lastPaid: "Apr 28, 2026",
-    factors: [
-      { label: "Late payment trend", detail: "2 of last 3 invoices paid late", impact: "medium" },
-      { label: "Active dispute history", detail: "1 dispute raised in last 60 days", impact: "medium" },
-    ],
-    action: "Monitor closely — flag for review if next invoice goes unopened past day 5",
-  },
-  {
-    name: "Sneha Pillai", email: "sneha.p@mail.com", avatar: "SP", totalBilled: 112000, invoices: 8, risk: 14, lastPaid: "Jun 10, 2026",
-    factors: [
-      { label: "On-time payment rate", detail: "8 of 8 invoices paid on time", impact: "low" },
-    ],
-    action: null,
-  },
-  {
-    name: "Rahul Verma", email: "rahul.verma@mail.com", avatar: "RV", totalBilled: 23400, invoices: 3, risk: 35, lastPaid: "Jun 02, 2026",
-    factors: [
-      { label: "Limited history", detail: "Only 3 invoices on record, 1 paid 4 days late", impact: "medium" },
-    ],
-    action: null,
-  },
-  {
-    name: "Divya Krishnan", email: "divya.k@mail.com", avatar: "DK", totalBilled: 201500, invoices: 11, risk: 81, lastPaid: "Mar 14, 2026",
-    factors: [
-      { label: "Late payment trend", detail: "4 of last 5 invoices paid 15+ days late", impact: "high" },
-      { label: "Invoice not opened", detail: "Current invoice unopened 9 days after sending", impact: "high" },
-      { label: "High outstanding amount", detail: "₹67,000 currently overdue", impact: "high" },
-    ],
-    action: "Escalate to admin now — large amount, repeated late pattern, no engagement",
-  },
-];
+const CLIENTS = [];
 
 function riskBand(score) {
   if (score < 30) return { label: "Low risk", color: "#16A34A", bg: "#DCFCE7" };
@@ -125,7 +61,7 @@ export default function ClientsPage() {
     return a.name.localeCompare(b.name);
   });
 
-  const avgRisk = Math.round(CLIENTS.reduce((s, c) => s + c.risk, 0) / CLIENTS.length);
+  const avgRisk = CLIENTS.length ? Math.round(CLIENTS.reduce((s, c) => s + c.risk, 0) / CLIENTS.length) : 0;
   const highRiskClients = CLIENTS.filter((c) => c.risk >= 60);
 
   return (
@@ -207,6 +143,13 @@ export default function ClientsPage() {
       </div>
 
       {/* CLIENT CARDS */}
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "64px 0", color: "#9AA7C2" }}>
+          <p style={{ fontSize: 32, margin: "0 0 8px" }}>👥</p>
+          <p style={{ fontSize: 15, fontWeight: 600, color: "#4A5578", margin: "0 0 4px" }}>No clients yet</p>
+          <p style={{ fontSize: 13, margin: 0 }}>Clients will appear here once connected to the backend.</p>
+        </div>
+      ) : (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
         {filtered.map((c) => {
           const band = riskBand(c.risk);
@@ -289,6 +232,7 @@ export default function ClientsPage() {
           );
         })}
       </div>
+      )}
     </>
   );
 }

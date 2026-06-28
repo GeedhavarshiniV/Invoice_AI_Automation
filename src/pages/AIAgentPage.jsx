@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 
 const AGENT_LOGS = [
   { id: 1, client: "Arjun Sharma", avatar: "AS", type: "Extension Request", status: "Approved", time: "2 mins ago", message: "Client requested 7-day extension for INV-1041 (₹18,500). Payment history: 6/8 on time. Auto-approved based on policy.", action: "Extension granted till Jul 2, 2026", color: "#16A34A" },
@@ -43,10 +44,16 @@ export default function AIAgentPage() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [activeTab, setActiveTab] = useState("chat"); // chat | logs | settings
-  const chatEndRef = useRef(null);
+  const chatWindowRef = useRef(null);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Scroll only the chat window's own scrollable container, not the
+    // whole dashboard page. scrollIntoView() bubbles up to the nearest
+    // scrollable ancestor — which, now that the dashboard is one
+    // continuously scrollable page, used to be the entire page instead
+    // of just this chat box.
+    const el = chatWindowRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages, typing]);
 
   const sendMessage = (text) => {
@@ -142,7 +149,13 @@ export default function AIAgentPage() {
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <h1 style={styles.pageTitle}>AI Resolution Agent</h1>
-            <span style={{ background:"#DCFCE7", color:"#15803D", fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:20, letterSpacing:"0.5px" }}>● LIVE</span>
+            <motion.span
+              style={{ background:"#DCFCE7", color:"#15803D", fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:20, letterSpacing:"0.5px", display:"inline-block" }}
+              animate={{ scale: [1, 1.12, 1] }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              ● LIVE
+            </motion.span>
           </div>
           <p style={styles.pageSubtitle}>Powered by CrewAI · Handles extensions, disputes & reminders autonomously</p>
         </div>
@@ -179,7 +192,7 @@ export default function AIAgentPage() {
       {activeTab === "chat" && (
         <div style={styles.chatLayout}>
           <div style={styles.chatMain}>
-            <div style={styles.chatWindow}>
+            <div style={styles.chatWindow} ref={chatWindowRef}>
               {messages.map((msg, i) => (
                 <div key={i} style={{ display:"flex", justifyContent: msg.role==="user"?"flex-end":"flex-start", marginBottom:16, animation: msg.role==="user"?"slideIn 0.3s ease":"agentSlide 0.3s ease" }}>
                   {msg.role === "agent" && (
@@ -197,7 +210,13 @@ export default function AIAgentPage() {
 
               {typing && (
                 <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
-                  <div style={{ width:34, height:34, borderRadius:"50%", background:"linear-gradient(135deg,#5B2A9E,#FF6B81)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>🤖</div>
+                  <motion.div
+                    style={{ width:34, height:34, borderRadius:"50%", background:"linear-gradient(135deg,#5B2A9E,#FF6B81)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}
+                    animate={{ scale: [1, 1.15, 1], boxShadow: ["0 0 0 0 rgba(91,42,158,0.4)", "0 0 0 8px rgba(91,42,158,0)", "0 0 0 0 rgba(91,42,158,0)"] }}
+                    transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    🤖
+                  </motion.div>
                   <div style={{ background:"#fff", border:"1px solid #F0EAF8", padding:"14px 18px", borderRadius:"16px 16px 16px 4px", display:"flex", gap:5, alignItems:"center", boxShadow:"0 2px 12px rgba(91,42,158,0.08)" }}>
                     {[0,1,2].map(j => (
                       <div key={j} style={{ width:7, height:7, borderRadius:"50%", background:"#C4B5FD", animation:`typingBounce 1.2s ease-in-out ${j*0.2}s infinite` }} />
@@ -205,7 +224,6 @@ export default function AIAgentPage() {
                   </div>
                 </div>
               )}
-              <div ref={chatEndRef} />
             </div>
 
             {/* QUICK ACTIONS */}

@@ -2,7 +2,3 @@ node_modules/
 .env
 build/
 dist/
-backend/venv/
-backend/__pycache__/
-backend/**/__pycache__/
-backend/.env

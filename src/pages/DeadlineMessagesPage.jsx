@@ -192,10 +192,30 @@ function SendConfirmModal({ invoice, tone, sendTime, onClose, onConfirm }) {
 
 export default function DeadlineMessagesPage() {
   const [invoiceList, setInvoiceList] = useState(invoices);
-  const [selected, setSelected] = useState(invoices[0]);
-  const [tone, setTone] = useState(getSuggestedTone(invoices[0].remindersSent));
+  const [selected, setSelected] = useState(invoices[0] ?? null);
+  const [tone, setTone] = useState(invoices[0] ? getSuggestedTone(invoices[0].remindersSent) : "Friendly");
   const [showConfirm, setShowConfirm] = useState(false);
   const [sentSuccess, setSentSuccess] = useState(false);
+
+  // No invoices yet (e.g. not connected to the backend) — short-circuit
+  // before any of the logic below, which assumes `selected` exists.
+  if (!selected) {
+    return (
+      <>
+        <div style={styles.topbar}>
+          <div>
+            <h1 style={styles.pageTitle}>Deadline Messages</h1>
+            <p style={styles.pageSubtitle}>Automatic reminders before and after due dates</p>
+          </div>
+        </div>
+        <div style={{ textAlign: "center", padding: "64px 0", color: "#9AA7C2" }}>
+          <p style={{ fontSize: 32, margin: "0 0 8px" }}>⏰</p>
+          <p style={{ fontSize: 15, fontWeight: 600, color: "#4A5578", margin: "0 0 4px" }}>No invoices to remind</p>
+          <p style={{ fontSize: 13, margin: 0 }}>Reminder schedules will appear here once connected to the backend.</p>
+        </div>
+      </>
+    );
+  }
 
   const suggestedTone = getSuggestedTone(selected.remindersSent);
   const message = generateMessage(selected, tone);

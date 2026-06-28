@@ -1,92 +1,6 @@
 import React, { useState } from "react";
 
-const invoices = [
-  {
-    id: "INV-1040",
-    client: "Priya Nair",
-    email: "priya@designstudio.in",
-    amount: 84500,
-    issued: "2025-06-01",
-    due: "Jun 20, 2026",
-    stages: [
-      { key: "issued", label: "Issued", done: true, timestamp: "Jun 1 · 10:15 AM" },
-      { key: "viewed", label: "Viewed", done: true, timestamp: "Jun 3 · 2:34 PM" },
-      { key: "due", label: "Payment Due", done: true, timestamp: "Jun 20" },
-      { key: "paid", label: "Paid", done: false, timestamp: null },
-    ],
-    status: "Overdue",
-    viewAlert: "Priya Nair viewed INV-1040 at 2:34 PM on Jun 3 — still unpaid",
-    avatar: "PN",
-  },
-  {
-    id: "INV-1041",
-    client: "Arjun Sharma",
-    email: "arjun@nexagroup.in",
-    amount: 18500,
-    issued: "2025-06-10",
-    due: "Jun 25, 2026",
-    stages: [
-      { key: "issued", label: "Issued", done: true, timestamp: "Jun 10 · 8:45 AM" },
-      { key: "viewed", label: "Viewed", done: false, timestamp: null },
-      { key: "due", label: "Payment Due", done: false, timestamp: "Jun 25" },
-      { key: "paid", label: "Paid", done: false, timestamp: null },
-    ],
-    status: "Pending",
-    viewAlert: "INV-1041 has not been viewed yet — consider a follow-up",
-    avatar: "AS",
-  },
-  {
-    id: "INV-1042",
-    client: "Sneha Iyer",
-    email: "sneha@cloudworks.in",
-    amount: 47200,
-    issued: "2025-05-28",
-    due: "Jun 15, 2026",
-    stages: [
-      { key: "issued", label: "Issued", done: true, timestamp: "May 28 · 11:30 AM" },
-      { key: "viewed", label: "Viewed", done: true, timestamp: "May 29 · 10:05 AM" },
-      { key: "due", label: "Payment Due", done: true, timestamp: "Jun 15" },
-      { key: "paid", label: "Paid", done: true, timestamp: "Jun 14 · 3:22 PM" },
-    ],
-    status: "Paid",
-    viewAlert: null,
-    avatar: "SI",
-  },
-  {
-    id: "INV-1043",
-    client: "Rahul Mehta",
-    email: "rahul@techventures.in",
-    amount: 120000,
-    issued: "2025-06-05",
-    due: "Jun 28, 2026",
-    stages: [
-      { key: "issued", label: "Issued", done: true, timestamp: "Jun 5 · 9:00 AM" },
-      { key: "viewed", label: "Viewed", done: true, timestamp: "Jun 5 · 4:12 PM" },
-      { key: "due", label: "Payment Due", done: false, timestamp: "Jun 28" },
-      { key: "paid", label: "Paid", done: false, timestamp: null },
-    ],
-    status: "Pending",
-    viewAlert: "Rahul Mehta viewed INV-1043 at 4:12 PM on Jun 5",
-    avatar: "RM",
-  },
-  {
-    id: "INV-1044",
-    client: "Kavya Reddy",
-    email: "kavya@brandlabs.in",
-    amount: 93000,
-    issued: "2025-06-08",
-    due: "Jun 30, 2026",
-    stages: [
-      { key: "issued", label: "Issued", done: true, timestamp: "Jun 8 · 2:00 PM" },
-      { key: "viewed", label: "Viewed", done: true, timestamp: "Jun 9 · 9:30 AM" },
-      { key: "due", label: "Payment Due", done: false, timestamp: "Jun 30" },
-      { key: "paid", label: "Paid", done: false, timestamp: null },
-    ],
-    status: "Pending",
-    viewAlert: "Kavya Reddy viewed INV-1044 at 9:30 AM on Jun 9",
-    avatar: "KR",
-  },
-];
+const invoices = [];
 
 const STATUS_COLOR = {
   Paid:    { bg: "#DCFCE7", color: "#15803D" },
@@ -217,7 +131,7 @@ function PDFModal({ invoice, onClose }) {
 }
 
 export default function InvoiceTrackerPage() {
-  const [selected, setSelected] = useState(invoices[0]);
+  const [selected, setSelected] = useState(invoices[0] ?? null);
   const [showPDF, setShowPDF] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [filter, setFilter] = useState("All");
@@ -294,6 +208,13 @@ export default function InvoiceTrackerPage() {
           </div>
 
           {/* Cards */}
+          {filtered.length === 0 && (
+            <div style={{ textAlign: "center", padding: "48px 0", color: "#9AA7C2" }}>
+              <p style={{ fontSize: 32, margin: "0 0 8px" }}>🔍</p>
+              <p style={{ fontSize: 15, fontWeight: 600, color: "#4A5578", margin: "0 0 4px" }}>No invoices to track</p>
+              <p style={{ fontSize: 13, margin: 0 }}>Invoices will appear here once connected to the backend.</p>
+            </div>
+          )}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {filtered.map(inv => {
               const sc = STATUS_COLOR[inv.status];

@@ -3,9 +3,42 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ledgerly</title>
+    <meta name="theme-color" content="#1A1140" />
+
+    <!-- Default/fallback SEO tags. react-helmet-async overrides these
+         per-page at runtime (see src/components/SEO.jsx), but these
+         values matter as the very first thing any crawler sees before
+         JS executes, since this is a client-rendered (CRA) app. -->
+    <title>Ledgerly — AI-Powered Invoice Automation</title>
+    <meta
+      name="description"
+      content="Ledgerly automates invoicing end-to-end: an AI agent chases late payments, resolves disputes, detects fraud risk, and tracks every invoice in real time."
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://www.ledgerly.app/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Ledgerly" />
+    <meta property="og:title" content="Ledgerly — AI-Powered Invoice Automation" />
+    <meta
+      property="og:description"
+      content="An AI agent that sends invoices, chases late payments, negotiates extensions, and flags fraud risk automatically."
+    />
+    <meta property="og:url" content="https://www.ledgerly.app/" />
+    <meta property="og:image" content="https://www.ledgerly.app/og-image.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Ledgerly — AI-Powered Invoice Automation" />
+    <meta
+      name="twitter:description"
+      content="An AI agent that sends invoices, chases late payments, negotiates extensions, and flags fraud risk automatically."
+    />
   </head>
   <body>
+    <noscript>
+      Ledgerly requires JavaScript to run. Please enable JavaScript in your browser to use the AI invoice
+      automation dashboard.
+    </noscript>
     <div id="root"></div>
   </body>
 </html>

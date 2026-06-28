@@ -1,4 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
+import SEO from "../components/SEO";
+import ScrollSection from "../components/ScrollSection";
+import CountUp from "../components/CountUp";
 import InvoicesPage from "./InvoicesPage";
 import ClientsPage from "./ClientsPage";
 import AIAgentPage from "./AIAgentPage";
@@ -8,6 +12,7 @@ import SmartExtensionPage from "./SmartExtensionPage";
 import InvoiceTrackerPage from "./InvoiceTrackerPage";
 import DeadlineMessagesPage from "./DeadlineMessagesPage";
 import FraudDetectorPage from "./FraudDetectorPage";
+import HelpPage from "./HelpPage";
 
 const STATS = [
   { label: "Total Revenue", value: "₹2,48,500", change: "+12.4%", up: true, icon: "💰", color: "#5B2A9E" },
@@ -45,6 +50,40 @@ const STATUS_COLOR = {
   Disputed: { bg: "#EDE9FE", color: "#6D28D9" },
 };
 
+// Each dashboard section gets its own distinct scroll-in animation,
+// so the continuous-scroll dashboard doesn't feel monotonous.
+// See src/components/ScrollSection.jsx for what each variant does.
+const SECTION_VARIANT = {
+  "Dashboard":    "fadeUp",
+  "Invoices":     "slideLeft",
+  "Clients":      "slideRight",
+  "AI Agent":     "scaleIn",
+  "Extensions":   "dropIn",
+  "Tracker":      "zoomFade",
+  "Messages":     "slideLeft",
+  "Fraud Check":  "pulseIn",
+  "Reports":      "flipUp",
+  "Settings":     "fadeUp",
+  "Help":         "scaleIn",
+};
+
+// Ambient dot/line background drifts a little differently per section —
+// same palette and pattern everywhere, just a different speed/direction/
+// density so each page feels subtly distinct while scrolling.
+const SECTION_AMBIENT = {
+  "Dashboard":    { speed: 30, direction: "vertical",   density: "normal" },
+  "Invoices":     { speed: 50, direction: "horizontal", density: "normal" },
+  "Clients":      { speed: 45, direction: "horizontal", density: "sparse" },
+  "AI Agent":     { speed: 60, direction: "diagonal",   density: "dense" },
+  "Extensions":   { speed: 35, direction: "vertical",   density: "sparse" },
+  "Tracker":      { speed: 55, direction: "diagonal",   density: "normal" },
+  "Messages":     { speed: 40, direction: "horizontal", density: "normal" },
+  "Fraud Check":  { speed: 25, direction: "vertical",   density: "dense" },
+  "Reports":      { speed: 50, direction: "diagonal",   density: "sparse" },
+  "Settings":     { speed: 20, direction: "vertical",   density: "sparse" },
+  "Help":         { speed: 30, direction: "horizontal", density: "normal" },
+};
+
 const RISK_ALERTS = [
   { name: "Divya Krishnan", avatar: "DK", risk: 81, reason: "Invoice unopened 9 days, repeated late pattern", amount: "₹67,000" },
   { name: "Priya Nair", avatar: "PN", risk: 72, reason: "3 of last 4 invoices paid 10+ days late", amount: "₹42,000" },
@@ -71,10 +110,67 @@ export default function HomePage({ user, onLogout }) {
     { icon: "🛡️", label: "Fraud Check" },
     { icon: "📈", label: "Reports" },
     { icon: "⚙️", label: "Settings" },
+    { icon: "❓", label: "Help" },
   ];
+
+  // Refs for each scrollable section, keyed by nav label, plus the
+  // scrollable main container itself.
+  const sectionRefs = useRef({});
+  const mainRef = useRef(null);
+  const isClickScrolling = useRef(false);
+  const [bounceKey, setBounceKey] = useState({});
+
+  // Clicking a sidebar item smooth-scrolls to that section instead of
+  // swapping content (the dashboard is now one continuously scrollable page).
+  const scrollToSection = (label) => {
+    const el = sectionRefs.current[label];
+    if (!el) return;
+    isClickScrolling.current = true;
+    setActiveNav(label);
+    // Bump a per-label counter every click (even repeat clicks on the
+    // already-active item) so the icon bounce animation always replays,
+    // not just when `activeNav` happens to change value.
+    setBounceKey((prev) => ({ ...prev, [label]: (prev[label] || 0) + 1 }));
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Release the "click scrolling" guard once the smooth scroll settles,
+    // so the observer can resume auto-highlighting on manual scroll.
+    setTimeout(() => { isClickScrolling.current = false; }, 700);
+  };
+
+  // Defensive: always start at the top of the dashboard on mount, in case
+  // layout shifts while all 11 sections render in (charts, tables, etc.)
+  // cause the browser to drift the scroll position during initial paint.
+  useEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  }, []);
+
+  // Highlights the correct sidebar item as the user scrolls manually,
+  // by watching which section is most visible inside the scroll container.
+  useEffect(() => {
+    const root = mainRef.current;
+    if (!root) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isClickScrolling.current) return;
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible) {
+          const label = visible.target.getAttribute("data-scroll-section");
+          if (label) setActiveNav(label);
+        }
+      },
+      { root, threshold: [0.3, 0.5, 0.7] }
+    );
+
+    Object.values(sectionRefs.current).forEach((el) => el && observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div style={styles.page}>
+      <SEO title={`${activeNav} — Dashboard`} description="Ledgerly dashboard." path="/dashboard" noIndex />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
@@ -125,6 +221,17 @@ export default function HomePage({ user, onLogout }) {
         ::-webkit-scrollbar { width:6px; }
         ::-webkit-scrollbar-track { background:#F4F7FC; }
         ::-webkit-scrollbar-thumb { background:#D0BDF4; border-radius:6px; }
+
+        /* Each dashboard section now stacks in one continuous scroll.
+           scroll-margin-top keeps a little breathing room above a section
+           when it's scrolled to via the sidebar, and the top border gives
+           a subtle visual break between pages. */
+        section[data-scroll-section] { scroll-margin-top: 16px; }
+        section[data-scroll-section]:not(:first-child) {
+          border-top: 1px dashed #E2D9F5;
+          padding-top: 36px;
+          margin-top: 12px;
+        }
       `}</style>
 
       <div style={styles.shell}>
@@ -150,9 +257,18 @@ export default function HomePage({ user, onLogout }) {
               <div
                 key={item.label}
                 className={`nav-item${activeNav === item.label ? " active" : ""}`}
-                onClick={() => setActiveNav(item.label)}
+                onClick={() => scrollToSection(item.label)}
               >
-                <span style={{ fontSize: 16 }}>{item.icon}</span>
+                <motion.span
+                  key={bounceKey[item.label] || 0}
+                  style={{ fontSize: 16, display: "inline-block" }}
+                  whileTap={{ scale: 0.75 }}
+                  initial={false}
+                  animate={bounceKey[item.label] ? { y: [0, -6, 0], scale: [1, 1.25, 1] } : {}}
+                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                >
+                  {item.icon}
+                </motion.span>
                 <span>{item.label}</span>
                 {item.label === "AI Agent" && (
                   <span className="ai-badge" style={{ marginLeft: "auto", background: "#FF6B81", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>LIVE</span>
@@ -187,19 +303,17 @@ export default function HomePage({ user, onLogout }) {
           </div>
         </div>
 
-        {/* MAIN CONTENT */}
-        <div style={styles.main}>
-          {activeNav === "Invoices"    && <InvoicesPage onNavigate={setActiveNav} />}
-          {activeNav === "Clients"     && <ClientsPage />}
-          {activeNav === "AI Agent"    && <AIAgentPage />}
-          {activeNav === "Extensions"  && <SmartExtensionPage />}
-          {activeNav === "Tracker"     && <InvoiceTrackerPage />}
-          {activeNav === "Messages"    && <DeadlineMessagesPage />}
-          {activeNav === "Fraud Check" && <FraudDetectorPage />}
-          {activeNav === "Reports"     && <ReportsPage />}
-          {activeNav === "Settings"    && <SettingsPage user={user} />}
-
-          {activeNav === "Dashboard" && <>
+        {/* MAIN CONTENT — one continuously scrollable page; each section
+            below animates in with its own distinct variant as it's scrolled
+            into view (see SECTION_VARIANT map + ScrollSection component). */}
+        <div style={styles.main} ref={mainRef}>
+          <ScrollSection
+            id="section-dashboard"
+            label="Dashboard"
+            variant={SECTION_VARIANT["Dashboard"]}
+            ambient={SECTION_AMBIENT["Dashboard"]}
+            ref={(el) => (sectionRefs.current["Dashboard"] = el)}
+          >
             {/* TOPBAR */}
             <div style={styles.topbar}>
               <div>
@@ -215,11 +329,17 @@ export default function HomePage({ user, onLogout }) {
             {/* STAT CARDS */}
             <div style={styles.statsGrid}>
               {STATS.map((s, i) => (
-                <div key={i} className="stat-card" style={styles.statCard}>
+                <motion.div
+                  key={i}
+                  className="stat-card"
+                  style={styles.statCard}
+                  whileHover={{ y: -8, rotate: i % 2 === 0 ? -1.5 : 1.5, scale: 1.03 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 14 }}
+                >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
                       <p style={styles.statLabel}>{s.label}</p>
-                      <p style={styles.statValue}>{s.value}</p>
+                      <p style={styles.statValue}><CountUp value={s.value} /></p>
                       <p style={{ fontSize: 12.5, color: s.up ? "#16A34A" : "#DC2626", fontWeight: 500, margin: 0 }}>
                         {s.up ? "↑" : "↓"} {s.change}
                       </p>
@@ -228,7 +348,7 @@ export default function HomePage({ user, onLogout }) {
                       <span style={{ fontSize: 22 }}>{s.icon}</span>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
 
@@ -263,9 +383,14 @@ export default function HomePage({ user, onLogout }) {
                         <td style={styles.td}><span style={{ fontWeight: 600, fontSize: 13.5 }}>{inv.amount}</span></td>
                         <td style={styles.td}><span style={{ fontSize: 13, color: "#6B7894" }}>{inv.due}</span></td>
                         <td style={styles.td}>
-                          <span style={{ ...styles.statusBadge, background: STATUS_COLOR[inv.status].bg, color: STATUS_COLOR[inv.status].color }}>
+                          <motion.span
+                            style={{ ...styles.statusBadge, background: STATUS_COLOR[inv.status].bg, color: STATUS_COLOR[inv.status].color, display: "inline-block" }}
+                            initial={{ opacity: 0, scale: 0.4 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 12, delay: i * 0.04 }}
+                          >
                             {inv.status}
-                          </span>
+                          </motion.span>
                         </td>
                         <td style={styles.td}>
                           <button style={{ background: "none", border: "1.5px solid #E2E8F4", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#5B2A9E", cursor: "pointer" }}>
@@ -323,7 +448,7 @@ export default function HomePage({ user, onLogout }) {
                   </div>
                   <button
                     className="action-btn"
-                    onClick={() => setActiveNav("AI Agent")}
+                    onClick={() => scrollToSection("AI Agent")}
                     style={{ marginTop: 14, width: "100%", background: "rgba(255,148,114,0.2)", color: "#FFB199", border: "1px solid rgba(255,148,114,0.3)", borderRadius: 9, padding: "10px 0", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}
                   >
                     View Agent Logs →
@@ -340,7 +465,7 @@ export default function HomePage({ user, onLogout }) {
                     <span style={{ fontSize: 18 }}>🚨</span>
                     <h2 style={styles.cardTitle}>Risk Early Warnings</h2>
                   </div>
-                  <button onClick={() => setActiveNav("Clients")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "#5B2A9E" }}>
+                  <button onClick={() => scrollToSection("Clients")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "#5B2A9E" }}>
                     View all in Clients →
                   </button>
                 </div>
@@ -356,10 +481,10 @@ export default function HomePage({ user, onLogout }) {
                       </div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, marginLeft: 12 }}>
                         <span style={{ ...styles.statusBadge, background: "#FEE2E2", color: "#DC2626" }}>Risk {r.risk}</span>
-                        <button onClick={() => setActiveNav("Extensions")} style={{ background: "none", border: "1.5px solid #5B2A9E", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#5B2A9E", cursor: "pointer" }}>
+                        <button onClick={() => scrollToSection("Extensions")} style={{ background: "none", border: "1.5px solid #5B2A9E", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#5B2A9E", cursor: "pointer" }}>
                           Extend →
                         </button>
-                        <button onClick={() => setActiveNav("Tracker")} style={{ background: "none", border: "1.5px solid #0EA5E9", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#0EA5E9", cursor: "pointer" }}>
+                        <button onClick={() => scrollToSection("Tracker")} style={{ background: "none", border: "1.5px solid #0EA5E9", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#0EA5E9", cursor: "pointer" }}>
                           Track →
                         </button>
                       </div>
@@ -386,7 +511,108 @@ export default function HomePage({ user, onLogout }) {
                 ))}
               </div>
             </div>
-          </>}
+          </ScrollSection>
+
+          <ScrollSection
+            id="section-invoices"
+            label="Invoices"
+            variant={SECTION_VARIANT["Invoices"]}
+            ambient={SECTION_AMBIENT["Invoices"]}
+            ref={(el) => (sectionRefs.current["Invoices"] = el)}
+          >
+            <InvoicesPage onNavigate={scrollToSection} />
+          </ScrollSection>
+
+          <ScrollSection
+            id="section-clients"
+            label="Clients"
+            variant={SECTION_VARIANT["Clients"]}
+            ambient={SECTION_AMBIENT["Clients"]}
+            ref={(el) => (sectionRefs.current["Clients"] = el)}
+          >
+            <ClientsPage />
+          </ScrollSection>
+
+          <ScrollSection
+            id="section-ai-agent"
+            label="AI Agent"
+            variant={SECTION_VARIANT["AI Agent"]}
+            ambient={SECTION_AMBIENT["AI Agent"]}
+            ref={(el) => (sectionRefs.current["AI Agent"] = el)}
+          >
+            <AIAgentPage />
+          </ScrollSection>
+
+          <ScrollSection
+            id="section-extensions"
+            label="Extensions"
+            variant={SECTION_VARIANT["Extensions"]}
+            ambient={SECTION_AMBIENT["Extensions"]}
+            ref={(el) => (sectionRefs.current["Extensions"] = el)}
+          >
+            <SmartExtensionPage />
+          </ScrollSection>
+
+          <ScrollSection
+            id="section-tracker"
+            label="Tracker"
+            variant={SECTION_VARIANT["Tracker"]}
+            ambient={SECTION_AMBIENT["Tracker"]}
+            ref={(el) => (sectionRefs.current["Tracker"] = el)}
+          >
+            <InvoiceTrackerPage />
+          </ScrollSection>
+
+          <ScrollSection
+            id="section-messages"
+            label="Messages"
+            variant={SECTION_VARIANT["Messages"]}
+            ambient={SECTION_AMBIENT["Messages"]}
+            ref={(el) => (sectionRefs.current["Messages"] = el)}
+          >
+            <DeadlineMessagesPage />
+          </ScrollSection>
+
+          <ScrollSection
+            id="section-fraud-check"
+            label="Fraud Check"
+            variant={SECTION_VARIANT["Fraud Check"]}
+            ambient={SECTION_AMBIENT["Fraud Check"]}
+            ref={(el) => (sectionRefs.current["Fraud Check"] = el)}
+          >
+            <FraudDetectorPage />
+          </ScrollSection>
+
+          <ScrollSection
+            id="section-reports"
+            label="Reports"
+            variant={SECTION_VARIANT["Reports"]}
+            ambient={SECTION_AMBIENT["Reports"]}
+            ref={(el) => (sectionRefs.current["Reports"] = el)}
+          >
+            <ReportsPage />
+          </ScrollSection>
+
+          <ScrollSection
+            id="section-settings"
+            label="Settings"
+            variant={SECTION_VARIANT["Settings"]}
+            ambient={SECTION_AMBIENT["Settings"]}
+            ref={(el) => (sectionRefs.current["Settings"] = el)}
+          >
+            <SettingsPage user={user} />
+          </ScrollSection>
+
+          <ScrollSection
+            id="section-help"
+            label="Help"
+            variant={SECTION_VARIANT["Help"]}
+            ambient={SECTION_AMBIENT["Help"]}
+            ref={(el) => (sectionRefs.current["Help"] = el)}
+            style={{ minHeight: "auto" }}
+          >
+            <HelpPage />
+          </ScrollSection>
         </div>
       </div>
     </div>
@@ -408,7 +634,7 @@ const styles = {
   userAvatar: { width: 34, height: 34, borderRadius: "50%", background: "rgba(255,148,114,0.3)", border: "2px solid #FF9472", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#FF9472", flexShrink: 0 },
   userName: { margin: 0, fontSize: 13, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   userEmail: { margin: 0, fontSize: 11, color: "rgba(255,255,255,0.45)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  main: { marginLeft: 240, flex: 1, padding: "28px 32px", minHeight: "100vh" },
+  main: { marginLeft: 240, flex: 1, padding: "28px 32px", height: "100vh", overflowY: "auto", scrollBehavior: "smooth", overflowAnchor: "none" },
   topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 26 },
   pageTitle: { fontFamily: "'Space Grotesk',sans-serif", fontSize: 24, fontWeight: 700, color: "#1A1140", margin: 0, letterSpacing: "-0.4px" },
   pageSubtitle: { fontSize: 13.5, color: "#6B7894", margin: "4px 0 0" },

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import SEO from "../components/SEO";
 
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -23,6 +24,12 @@ export default function LoginPage({ onLogin }) {
 
   return (
     <div style={styles.page}>
+      <SEO
+        title="Sign In"
+        description="Sign in to your Ledgerly account to manage invoices, track payments, and let the AI agent handle follow-ups and disputes."
+        path="/login"
+        noIndex
+      />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
