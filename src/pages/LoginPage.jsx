@@ -1,25 +1,50 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import SEO from "../components/SEO";
+import { api, saveToken } from "../api/client";
 
 export default function LoginPage({ onLogin }) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [stamped, setStamped] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setStamped(true), 500);
     return () => clearTimeout(t);
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     setLoading(true);
-    setTimeout(() => {
-        const name = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-        onLogin({ email, name });
-    }, 1300);
+    try {
+      const data = await api.login(email, password);
+
+      // ⚠️ VERIFY THIS KEY NAME against your real /auth/login response.
+      // Open http://127.0.0.1:8000/docs, try /auth/login, check the JSON.
+      // Common alternatives: data.token, data.jwt, data.access_token
+      const token = data.access_token;
+      if (!token) {
+        throw new Error("Login succeeded but no token was returned. Check the response key name.");
+      }
+      saveToken(token);
+
+      // If your backend returns user info (e.g. data.user.name), use that instead
+      // of deriving the name from the email below.
+      const name = data.user?.name
+        || email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+      onLogin({ email: data.user?.email || email, name });
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.message || "Invalid email or password");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -166,6 +191,13 @@ export default function LoginPage({ onLogin }) {
             <h2 style={styles.heading}>Welcome back</h2>
             <p style={styles.subheading}>Sign in to your account <span className="cursor-blink"/></p>
 
+            {error && (
+              <div className="error-shake" style={styles.errorBox}>
+                <span>⚠️</span>
+                <span>{error}</span>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} style={styles.form}>
               <div style={styles.fieldGroup}>
                 <label style={styles.label}>Email address</label>
@@ -214,7 +246,7 @@ export default function LoginPage({ onLogin }) {
             </button>
 
             <p style={{ textAlign:"center", fontSize:13.5, color:"#6B7894", marginTop:22, marginBottom:0 }}>
-              New to Ledgerly? <a href="#" className="link">Create an account</a>
+              New to Ledgerly? <a href="/signup" className="link" onClick={(e)=>{e.preventDefault(); navigate("/signup");}}>Create an account</a>
             </p>
           </div>
         </div>

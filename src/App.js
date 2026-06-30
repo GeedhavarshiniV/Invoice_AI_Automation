@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
 import HomePage from "./pages/HomePage";
 import PageTransition from "./components/PageTransition";
 
@@ -20,7 +21,7 @@ function App() {
 
   return (
     // AnimatePresence + a location-keyed <Routes> lets each top-level page
-    // (Landing / Login / Dashboard) fade+slide in/out when the URL changes,
+    // (Landing / Login / Signup / Dashboard) fade+slide in/out when the URL changes,
     // instead of swapping instantly.
     <AnimatePresence mode="wait" initial={false}>
       <Routes location={location} key={location.pathname}>
@@ -44,6 +45,20 @@ function App() {
             ) : (
               <PageTransition keyName="login">
                 <LoginPage onLogin={handleLogin} />
+              </PageTransition>
+            )
+          }
+        />
+
+        {/* Public signup route. If already logged in, skip straight to the dashboard. */}
+        <Route
+          path="/signup"
+          element={
+            user ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <PageTransition keyName="signup">
+                <SignupPage onLogin={handleLogin} />
               </PageTransition>
             )
           }
