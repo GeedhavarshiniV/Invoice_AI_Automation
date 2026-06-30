@@ -1,18 +1,8 @@
 import React, { useState } from "react";
 
-const CLIENT_HISTORY = {
-  "INV-1041": { client: "Arjun Sharma", avatar: "AS", email: "arjun@sharma.com", amount: 18500, due: "Jun 25, 2026", totalInvoices: 8, paidOnTime: 6, avgDelayDays: 3, disputes: 0, lastPaid: "May 12, 2026", riskScore: 72 },
-  "INV-1040": { client: "Priya Nair", avatar: "PN", email: "priya@nair.com", amount: 42000, due: "Jun 20, 2026", totalInvoices: 5, paidOnTime: 2, avgDelayDays: 9, disputes: 1, lastPaid: "Apr 08, 2026", riskScore: 28 },
-  "INV-1037": { client: "Vikram Menon", avatar: "VM", email: "vikram@menon.com", amount: 14800, due: "Jun 12, 2026", totalInvoices: 4, paidOnTime: 2, avgDelayDays: 6, disputes: 1, lastPaid: "Mar 22, 2026", riskScore: 40 },
-  "INV-1035": { client: "Rahul Das", avatar: "RD", email: "rahul@das.com", amount: 8900, due: "Jun 08, 2026", totalInvoices: 3, paidOnTime: 1, avgDelayDays: 12, disputes: 0, lastPaid: "Feb 14, 2026", riskScore: 32 },
-};
+const CLIENT_HISTORY = {};
 
-const INVOICES = [
-  { id: "INV-1041", status: "Pending" },
-  { id: "INV-1040", status: "Overdue" },
-  { id: "INV-1037", status: "Disputed" },
-  { id: "INV-1035", status: "Pending" },
-];
+const INVOICES = [];
 
 function getRiskLevel(score) {
   if (score >= 70) return { label: "Low Risk", color: "#16A34A", bg: "#DCFCE7", icon: "🟢" };
@@ -42,10 +32,7 @@ export default function SmartExtensionPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [customDays, setCustomDays] = useState(null);
   const [approved, setApproved] = useState(false);
-  const [extensions, setExtensions] = useState([
-    { id: "INV-1038", client: "Meena Iyer", avatar: "MI", originalDue: "Jun 15, 2026", newDue: "Jun 22, 2026", days: 7, risk: "Low Risk", status: "Approved", time: "2 days ago" },
-    { id: "INV-1033", client: "Deepak Nair", avatar: "DN", originalDue: "Jun 02, 2026", newDue: "Jun 05, 2026", days: 3, risk: "High Risk", status: "Approved", time: "5 days ago" },
-  ]);
+  const [extensions, setExtensions] = useState([ ]);
 
   const client = CLIENT_HISTORY[selectedInvoice];
   const risk = client ? getRiskLevel(client.riskScore) : null;
@@ -170,6 +157,13 @@ export default function SmartExtensionPage() {
               <h2 style={styles.cardTitle}>Select Invoice for Extension</h2>
               <p style={{ fontSize:13.5, color:"#9AA7C2", margin:"4px 0 20px" }}>Choose which invoice needs a deadline extension</p>
               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                {INVOICES.length === 0 && (
+                  <div style={{ textAlign: "center", padding: "48px 0", color: "#9AA7C2" }}>
+                    <p style={{ fontSize: 32, margin: "0 0 8px" }}>🗓</p>
+                    <p style={{ fontSize: 15, fontWeight: 600, color: "#4A5578", margin: "0 0 4px" }}>No invoices available</p>
+                    <p style={{ fontSize: 13, margin: 0 }}>Invoices will appear here once connected to the backend.</p>
+                  </div>
+                )}
                 {INVOICES.map(inv => {
                   const c = CLIENT_HISTORY[inv.id];
                   const r = getRiskLevel(c.riskScore);

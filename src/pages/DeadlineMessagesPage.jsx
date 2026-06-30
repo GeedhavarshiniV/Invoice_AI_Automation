@@ -1,70 +1,6 @@
 import React, { useState } from "react";
 
-const invoices = [
-  {
-    id: "INV-1040",
-    client: "Priya Nair",
-    email: "priya@designstudio.in",
-    amount: 84500,
-    due: "Jun 20, 2026",
-    daysOverdue: 5,
-    status: "Overdue",
-    avatar: "PN",
-    remindersSent: 2,
-    avgOpenTime: "10:30 AM",
-    avgOpenDay: "Tuesday",
-    history: [
-      { tone: "Friendly", sent: "Jun 15, 2026 · 10:32 AM", opened: true, openedAt: "Jun 15 · 11:04 AM" },
-      { tone: "Firm", sent: "Jun 18, 2026 · 10:28 AM", opened: true, openedAt: "Jun 18 · 10:55 AM" },
-    ],
-  },
-  {
-    id: "INV-1041",
-    client: "Arjun Sharma",
-    email: "arjun@nexagroup.in",
-    amount: 18500,
-    due: "Jun 25, 2026",
-    daysOverdue: 0,
-    status: "Pending",
-    avatar: "AS",
-    remindersSent: 0,
-    avgOpenTime: "9:15 AM",
-    avgOpenDay: "Monday",
-    history: [],
-  },
-  {
-    id: "INV-1043",
-    client: "Rahul Mehta",
-    email: "rahul@techventures.in",
-    amount: 120000,
-    due: "Jun 28, 2026",
-    daysOverdue: 0,
-    status: "Pending",
-    avatar: "RM",
-    remindersSent: 1,
-    avgOpenTime: "2:00 PM",
-    avgOpenDay: "Wednesday",
-    history: [
-      { tone: "Friendly", sent: "Jun 20, 2026 · 2:03 PM", opened: false, openedAt: null },
-    ],
-  },
-  {
-    id: "INV-1044",
-    client: "Kavya Reddy",
-    email: "kavya@brandlabs.in",
-    amount: 93000,
-    due: "Jun 28, 2026",
-    daysOverdue: 0,
-    status: "Pending",
-    avatar: "KR",
-    remindersSent: 1,
-    avgOpenTime: "11:00 AM",
-    avgOpenDay: "Thursday",
-    history: [
-      { tone: "Friendly", sent: "Jun 21, 2026 · 11:02 AM", opened: true, openedAt: "Jun 21 · 11:45 AM" },
-    ],
-  },
-];
+const invoices = [ ];
 
 const STATUS_COLOR = {
   Paid:    { bg: "#DCFCE7", color: "#15803D" },
@@ -202,11 +138,21 @@ export default function DeadlineMessagesPage() {
   if (!selected) {
     return (
       <>
-        <div style={styles.topbar}>
+        <div style={{ marginBottom: 24 }}>
           <div>
-            <h1 style={styles.pageTitle}>Deadline Messages</h1>
-            <p style={styles.pageSubtitle}>Automatic reminders before and after due dates</p>
-          </div>
+            <h1 style={{
+                fontFamily: "'Space Grotesk',sans-serif",
+                fontWeight: 700,
+                fontSize: 24,
+                color: "#1A1140",
+                margin: 0,
+              }}>Deadline Messages</h1>
+            <p style={{
+               fontSize: 13.5,
+               color: "#6B7894",
+              margin: "4px 0 0",
+              }}>Automatic reminders before and after due dates</p>
+          </div>  
         </div>
         <div style={{ textAlign: "center", padding: "64px 0", color: "#9AA7C2" }}>
           <p style={{ fontSize: 32, margin: "0 0 8px" }}>⏰</p>

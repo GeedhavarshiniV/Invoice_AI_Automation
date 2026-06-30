@@ -14,34 +14,13 @@ import DeadlineMessagesPage from "./DeadlineMessagesPage";
 import FraudDetectorPage from "./FraudDetectorPage";
 import HelpPage from "./HelpPage";
 
-const STATS = [
-  { label: "Total Revenue", value: "₹2,48,500", change: "+12.4%", up: true, icon: "💰", color: "#5B2A9E" },
-  { label: "Paid Invoices", value: "84", change: "+8 this month", up: true, icon: "✅", color: "#16A34A" },
-  { label: "Pending", value: "23", change: "₹64,200 due", up: false, icon: "⏳", color: "#D97706" },
-  { label: "Overdue", value: "6", change: "Action needed", up: false, icon: "🚨", color: "#DC2626" },
-];
+const STATS = [];
 
-const INVOICES = [
-  { id: "INV-1041", client: "Arjun Sharma", amount: "₹18,500", due: "Jun 25, 2026", status: "Pending", avatar: "AS" },
-  { id: "INV-1040", client: "Priya Nair", amount: "₹42,000", due: "Jun 20, 2026", status: "Overdue", avatar: "PN" },
-  { id: "INV-1039", client: "Karthik Rajan", amount: "₹9,750", due: "Jun 18, 2026", status: "Paid", avatar: "KR" },
-  { id: "INV-1038", client: "Meena Iyer", amount: "₹31,200", due: "Jun 15, 2026", status: "Paid", avatar: "MI" },
-  { id: "INV-1037", client: "Vikram Menon", amount: "₹14,800", due: "Jun 12, 2026", status: "Disputed", avatar: "VM" },
-  { id: "INV-1036", client: "Sneha Pillai", amount: "₹22,500", due: "Jun 10, 2026", status: "Paid", avatar: "SP" },
-];
+const INVOICES = [];
 
-const ACTIVITIES = [
-  { icon: "💬", text: "Arjun Sharma requested a 7-day payment extension", time: "2 mins ago", color: "#5B2A9E" },
-  { icon: "✅", text: "Invoice INV-1039 marked as paid by Karthik Rajan", time: "1 hour ago", color: "#16A34A" },
-  { icon: "🚨", text: "INV-1040 is overdue by 2 days — AI agent sent reminder", time: "3 hours ago", color: "#DC2626" },
-  { icon: "🤖", text: "AI agent resolved dispute for Vikram Menon — partial refund approved", time: "Yesterday", color: "#0EA5E9" },
-  { icon: "📨", text: "3 new invoices sent to clients automatically", time: "Yesterday", color: "#D97706" },
-];
+const ACTIVITIES = [];
 
-const BAR_DATA = [
-  { month: "Jan", value: 65 }, { month: "Feb", value: 80 }, { month: "Mar", value: 55 },
-  { month: "Apr", value: 90 }, { month: "May", value: 75 }, { month: "Jun", value: 95 },
-];
+const BAR_DATA = [];
 
 const STATUS_COLOR = {
   Paid:     { bg: "#DCFCE7", color: "#15803D" },
@@ -84,14 +63,12 @@ const SECTION_AMBIENT = {
   "Help":         { speed: 30, direction: "horizontal", density: "normal" },
 };
 
-const RISK_ALERTS = [
-  { name: "Divya Krishnan", avatar: "DK", risk: 81, reason: "Invoice unopened 9 days, repeated late pattern", amount: "₹67,000" },
-  { name: "Priya Nair", avatar: "PN", risk: 72, reason: "3 of last 4 invoices paid 10+ days late", amount: "₹42,000" },
-];
+const RISK_ALERTS = [ ];
 
 export default function HomePage({ user, onLogout }) {
   const [activeNav, setActiveNav] = useState("Dashboard");
   const [search, setSearch] = useState("");
+
 
   const filtered = INVOICES.filter(inv =>
     inv.client.toLowerCase().includes(search.toLowerCase()) ||
@@ -270,25 +247,13 @@ export default function HomePage({ user, onLogout }) {
                   {item.icon}
                 </motion.span>
                 <span>{item.label}</span>
-                {item.label === "AI Agent" && (
-                  <span className="ai-badge" style={{ marginLeft: "auto", background: "#FF6B81", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>LIVE</span>
-                )}
-                {item.label === "Extensions" && (
-                  <span style={{ marginLeft: "auto", background: "#5B2A9E", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>NEW</span>
-                )}
-                {item.label === "Messages" && (
-                  <span style={{ marginLeft: "auto", background: "#FF6B81", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>NEW</span>
-                )}
-                {item.label === "Tracker" && (
-                  <span style={{ marginLeft: "auto", background: "#0EA5E9", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>NEW</span>
-                )}
-                {item.label === "Fraud Check" && (
-                  <span style={{ marginLeft: "auto", background: "#DC2626", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10 }}>NEW</span>
-                )}
+                
+                
               </div>
             ))}
           </div>
-
+       
+          
           <div style={styles.sidebarBottom}>
             <div style={styles.userRow}>
               <div style={styles.userAvatar}>
@@ -321,9 +286,20 @@ export default function HomePage({ user, onLogout }) {
                 <p style={styles.pageSubtitle}>Monday, June 22, 2026 · Welcome back, {user?.name?.split(" ")[0] || "Admin"} 👋</p>
               </div>
               <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <button className="action-btn secondary">+ New Invoice</button>
-                <button className="action-btn primary">🤖 Ask AI Agent</button>
-              </div>
+               <button
+                className="action-btn secondary"
+                onClick={() => scrollToSection("Invoices")}
+                >
+                  + New Invoice
+              </button>
+
+              <button
+               className="action-btn primary"
+               onClick={() => scrollToSection("AI Agent")}
+               >
+                🤖 Ask AI Agent
+              </button>
+             </div>
             </div>
 
             {/* STAT CARDS */}
@@ -371,6 +347,9 @@ export default function HomePage({ user, onLogout }) {
                     </tr>
                   </thead>
                   <tbody>
+                    {filtered.length === 0 && (
+                      <tr><td colSpan={6} style={{ textAlign: "center", padding: "32px 0", color: "#9AA7C2" }}>No invoices yet</td></tr>
+                    )}
                     {filtered.map((inv, i) => (
                       <tr key={i} className="inv-row" style={{ borderBottom: "1px solid #F4F0FC" }}>
                         <td style={styles.td}><span style={{ fontWeight: 600, color: "#5B2A9E", fontSize: 13 }}>{inv.id}</span></td>
@@ -498,6 +477,9 @@ export default function HomePage({ user, onLogout }) {
             <div style={{ ...styles.card, marginTop: 20 }}>
               <h2 style={styles.cardTitle}>Recent Activity</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {ACTIVITIES.length === 0 && (
+                  <p style={{ textAlign: "center", padding: "24px 0", color: "#9AA7C2", fontSize: 13.5, margin: 0 }}>No recent activity yet</p>
+                )}
                 {ACTIVITIES.map((act, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "13px 0", borderBottom: i < ACTIVITIES.length - 1 ? "1px solid #F4F0FC" : "none" }}>
                     <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${act.color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16 }}>

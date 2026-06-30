@@ -1,20 +1,7 @@
 import React, { useState } from "react";
 import { downloadInvoicePDF } from "../utils/generateInvoicePDF";
 
-const ALL_INVOICES = [
-  { id: "INV-1041", client: "Arjun Sharma", email: "arjun@sharma.com", amount: 18500, due: "Jun 25, 2026", issued: "Jun 10, 2026", status: "Pending", avatar: "AS", items: 3 },
-  { id: "INV-1040", client: "Priya Nair", email: "priya@nair.com", amount: 42000, due: "Jun 20, 2026", issued: "Jun 05, 2026", status: "Overdue", avatar: "PN", items: 5 },
-  { id: "INV-1039", client: "Karthik Rajan", email: "karthik@rajan.com", amount: 9750, due: "Jun 18, 2026", issued: "Jun 03, 2026", status: "Paid", avatar: "KR", items: 2 },
-  { id: "INV-1038", client: "Meena Iyer", email: "meena@iyer.com", amount: 31200, due: "Jun 15, 2026", issued: "Jun 01, 2026", status: "Paid", avatar: "MI", items: 4 },
-  { id: "INV-1037", client: "Vikram Menon", email: "vikram@menon.com", amount: 14800, due: "Jun 12, 2026", issued: "May 28, 2026", status: "Disputed", avatar: "VM", items: 3 },
-  { id: "INV-1036", client: "Sneha Pillai", email: "sneha@pillai.com", amount: 22500, due: "Jun 10, 2026", issued: "May 26, 2026", status: "Paid", avatar: "SP", items: 6 },
-  { id: "INV-1035", client: "Rahul Das", email: "rahul@das.com", amount: 8900, due: "Jun 08, 2026", issued: "May 24, 2026", status: "Pending", avatar: "RD", items: 1 },
-  { id: "INV-1034", client: "Ananya Roy", email: "ananya@roy.com", amount: 55000, due: "Jun 05, 2026", issued: "May 21, 2026", status: "Paid", avatar: "AR", items: 7 },
-  { id: "INV-1033", client: "Deepak Nair", email: "deepak@nair.com", amount: 17300, due: "Jun 02, 2026", issued: "May 18, 2026", status: "Overdue", avatar: "DN", items: 2 },
-  { id: "INV-1032", client: "Kavya Menon", email: "kavya@menon.com", amount: 29800, due: "May 30, 2026", issued: "May 15, 2026", status: "Paid", avatar: "KM", items: 4 },
-  { id: "INV-1031", client: "Suresh Kumar", email: "suresh@kumar.com", amount: 12400, due: "May 28, 2026", issued: "May 13, 2026", status: "Disputed", avatar: "SK", items: 2 },
-  { id: "INV-1030", client: "Divya Krishnan", email: "divya@krishnan.com", amount: 38600, due: "May 25, 2026", issued: "May 10, 2026", status: "Paid", avatar: "DK", items: 5 },
-];
+const ALL_INVOICES = [];
 
 const STATUS_STYLE = {
   Paid:     { bg: "#DCFCE7", color: "#15803D" },
@@ -142,7 +129,6 @@ export default function InvoicesPage({ onNavigate }) {
           {selected.length > 0 && (
             <button className="action-btn danger">🗑 Delete ({selected.length})</button>
           )}
-          <button className="action-btn ghost">📤 Export CSV</button>
           <button className="action-btn primary" onClick={() => setShowModal(true)}>+ New Invoice</button>
         </div>
       </div>

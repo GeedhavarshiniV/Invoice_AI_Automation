@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 
-const AGENT_LOGS = [
-  { id: 1, client: "Arjun Sharma", avatar: "AS", type: "Extension Request", status: "Approved", time: "2 mins ago", message: "Client requested 7-day extension for INV-1041 (₹18,500). Payment history: 6/8 on time. Auto-approved based on policy.", action: "Extension granted till Jul 2, 2026", color: "#16A34A" },
-  { id: 2, client: "Priya Nair", avatar: "PN", type: "Overdue Reminder", status: "Sent", time: "1 hour ago", message: "INV-1040 overdue by 2 days (₹42,000). Sent personalized reminder via email. Tone: firm but polite.", action: "Follow-up scheduled in 48 hours", color: "#D97706" },
-  { id: 3, client: "Vikram Menon", avatar: "VM", type: "Dispute Resolution", status: "Resolved", time: "3 hours ago", message: "Client disputed duplicate charge on INV-1037. Agent cross-checked line items. Duplicate confirmed. Partial refund of ₹2,800 approved.", action: "Refund processed, admin notified", color: "#0EA5E9" },
-  { id: 4, client: "Deepak Nair", avatar: "DN", type: "Overdue Reminder", status: "Escalated", time: "5 hours ago", message: "INV-1033 overdue by 4 days (₹17,300). Two reminders sent. No response. Escalating to admin for manual follow-up.", action: "Admin notified via Slack", color: "#DC2626" },
-  { id: 5, client: "Suresh Kumar", avatar: "SK", type: "Dispute Resolution", status: "Pending", time: "Yesterday", message: "Client disputed service charges on INV-1031 (₹12,400). Agent is analyzing invoice line items against contract terms.", action: "Review in progress...", color: "#6D28D9" },
-  { id: 6, client: "Rahul Das", avatar: "RD", type: "Payment Confirmation", status: "Confirmed", time: "Yesterday", message: "Payment received for INV-1035 (₹8,900). Client notified with receipt. Invoice marked as paid.", action: "Receipt sent to rahul@das.com", color: "#16A34A" },
-];
+const AGENT_LOGS = [];
 
 const CHAT_HISTORY = [
   { role: "agent", text: "Hello! I'm your AI Invoice Resolution Agent. I can help you review overdue invoices, handle client disputes, send reminders, or approve extension requests. What would you like to do?", time: "Now" },
@@ -265,6 +258,13 @@ export default function AIAgentPage() {
       {/* LOGS TAB */}
       {activeTab === "logs" && (
         <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          {AGENT_LOGS.length === 0 && (
+            <div style={{ textAlign: "center", padding: "48px 0", color: "#9AA7C2" }}>
+              <p style={{ fontSize: 32, margin: "0 0 8px" }}>🤖</p>
+              <p style={{ fontSize: 15, fontWeight: 600, color: "#4A5578", margin: "0 0 4px" }}>No agent activity yet</p>
+              <p style={{ fontSize: 13, margin: 0 }}>Logs will appear here once connected to the backend.</p>
+            </div>
+          )}
           {AGENT_LOGS.map((log,i) => (
             <div key={log.id} className="log-card" style={{ background:"#fff", borderRadius:14, padding:"20px 24px", border:"1px solid #F0EAF8", boxShadow:"0 2px 12px rgba(91,42,158,0.06)", animation:`fadeUp 0.4s ease ${i*0.06}s both` }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>

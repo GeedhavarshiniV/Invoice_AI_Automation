@@ -105,8 +105,8 @@ export default function FraudDetectorPage() {
         </div>
         <div style={styles.statCard}>
           <p style={styles.statLabel}>Detection Accuracy</p>
-          <p style={styles.statValue}>96.2%</p>
-          <p style={{ fontSize: 12.5, color: "#16A34A", fontWeight: 500, margin: 0 }}>↑ Based on last 90 days</p>
+          <p style={styles.statValue}></p>
+          <p style={{ fontSize: 12.5, color: "#16A34A", fontWeight: 500, margin: 0 }}>Will be available after backend analysis</p>
         </div>
       </div>
 

@@ -72,7 +72,7 @@ const ScrollSection = forwardRef(function ScrollSection(
       data-scroll-section={label || id}
       initial={v.initial}
       whileInView={v.whileInView}
-      viewport={{ once: true, amount: 0.2 }}
+      viewport={{ once: false, amount: 0.2 }}
       transition={v.transition}
       style={{ minHeight: "60vh", paddingBottom: 48, position: "relative", ...style }}
     >
