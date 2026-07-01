@@ -1,3 +1,4 @@
+import { loginUser } from "../api";
 import React, { useState, useEffect } from "react";
 import SEO from "../components/SEO";
 
@@ -13,14 +14,35 @@ export default function LoginPage({ onLogin }) {
     return () => clearTimeout(t);
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     setLoading(true);
-    setTimeout(() => {
-        const name = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-        onLogin({ email, name });
-    }, 1300);
-  };
+
+    try {
+        const data = await loginUser(email, password);
+
+        console.log("Login Success:", data);
+
+        // Store JWT token
+        localStorage.setItem("token", data.access_token);
+
+        // Send user data to parent
+        onLogin({
+            email: data.user_email,
+            name: data.user_name
+        });
+
+    } catch (error) {
+
+        alert(error.message);
+
+    } finally {
+
+        setLoading(false);
+
+    }
+};
 
   return (
     <div style={styles.page}>

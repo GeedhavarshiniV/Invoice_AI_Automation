@@ -1,4 +1,21 @@
 node_modules/
+# Environment secrets
 .env
+
+# Python virtual environment
+venv/
+backend/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Build files
 build/
 dist/
+
+# IDE
+.vscode/
