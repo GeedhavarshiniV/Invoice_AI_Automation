@@ -23,6 +23,7 @@ class ClientCreate(BaseModel):
     phone: Optional[str] = None
     company: Optional[str] = None
     location: Optional[str] = None
+    state: Optional[str] = None  # NEW
 
 class ClientOut(BaseModel):
     id: int
@@ -31,6 +32,7 @@ class ClientOut(BaseModel):
     phone: Optional[str]
     company: Optional[str]
     location: Optional[str]
+    state: Optional[str]  # NEW
     risk_score: float
     status: str
     created_at: datetime
@@ -42,6 +44,7 @@ class InvoiceCreate(BaseModel):
     amount: float
     description: Optional[str] = None
     due_date: datetime
+    category: Optional[str] = "default"  # NEW: looks up GST_RATES, defaults if omitted
 
 class InvoiceOut(BaseModel):
     id: int
@@ -54,6 +57,14 @@ class InvoiceOut(BaseModel):
     due_date: datetime
     paid_date: Optional[datetime]
     fraud_score: float
+    # --- NEW: GST fields ---
+    category: Optional[str]
+    tax_type: Optional[str]
+    cgst: float
+    sgst: float
+    igst: float
+    total_gst: float
+    total_amount: float
     class Config:
         from_attributes = True
 

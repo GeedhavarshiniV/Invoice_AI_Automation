@@ -7,8 +7,13 @@ from schemas.schemas import ClientCreate, ClientOut
 from services.risk_engine import calculate_risk_score, get_risk_level
 from auth_dependency import get_current_user
 from typing import List
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/clients", tags=["Clients"])
+
+
+class ClientStateUpdate(BaseModel):
+    state: str
 
 
 @router.get("/", response_model=List[ClientOut])
@@ -28,11 +33,32 @@ def get_client(client_id: int, db: Session = Depends(get_db), current_user: User
 def create_client(client: ClientCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if db.query(Client).filter(Client.email == client.email).first():
         raise HTTPException(status_code=400, detail="Email already exists")
-    new_client = Client(name=client.name, email=client.email, phone=client.phone, company=client.company, location=client.location, risk_score=50.0, status="New")
+    new_client = Client(
+        name=client.name,
+        email=client.email,
+        phone=client.phone,
+        company=client.company,
+        location=client.location,
+        state=client.state,  # NEW
+        risk_score=50.0,
+        status="New",
+    )
     db.add(new_client)
     db.commit()
     db.refresh(new_client)
     return new_client
+
+
+@router.patch("/{client_id}/state", response_model=ClientOut)
+def update_client_state(client_id: int, update: ClientStateUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # NEW: lets you set/fix the state on clients that existed before GST was added
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    client.state = update.state
+    db.commit()
+    db.refresh(client)
+    return client
 
 
 @router.get("/{client_id}/risk")

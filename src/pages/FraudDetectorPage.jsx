@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { api } from "../api/client";
 
 const STATUS_COLOR = {
   Paid:     { bg: "#DCFCE7", color: "#15803D" },
@@ -13,19 +14,81 @@ const RISK_LEVEL = (score) => {
   return { label: "Clean", bg: "#DCFCE7", color: "#15803D", dot: "#16A34A" };
 };
 
-const FLAGGED_INVOICES = [];
-
 const WEIGHT_COLOR = { high: "#DC2626", medium: "#D97706", low: "#6B7894" };
 
+function initials(name) {
+  if (!name) return "?";
+  const parts = name.trim().split(" ");
+  return parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
+}
+
+function fmt(n) {
+  return "₹" + Math.round(n || 0).toLocaleString("en-IN");
+}
+
+function fmtDate(dateStr) {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 export default function FraudDetectorPage() {
-  const [selectedId, setSelectedId] = useState(FLAGGED_INVOICES[0]?.id ?? null);
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selectedId, setSelectedId] = useState(null);
   const [filter, setFilter] = useState("All");
   const [decisions, setDecisions] = useState({});
+  const [savingDecision, setSavingDecision] = useState(false);
 
-  const selected = FLAGGED_INVOICES.find(inv => inv.id === selectedId);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await api.getFlaggedInvoices();
+        if (cancelled) return;
+        const mapped = (data || []).map(inv => ({
+          id: inv.id,
+          rawId: inv.raw_id,
+          client: inv.client,
+          email: inv.email,
+          avatar: initials(inv.client),
+          isNewClient: inv.isNewClient,
+          amount: fmt(inv.amount),
+          rawAmount: inv.amount,
+          status: inv.status,
+          due: fmtDate(inv.due),
+          issued: fmtDate(inv.issued),
+          score: inv.score,
+          signals: inv.signals || [],
+          history: [
+            { event: "Invoice issued", time: fmtDate(inv.issued) },
+            { event: "Due date", time: fmtDate(inv.due) },
+            ...(inv.paid ? [{ event: "Marked as paid", time: fmtDate(inv.paid) }] : []),
+          ],
+        }));
+        setInvoices(mapped);
+        setSelectedId(mapped[0]?.id ?? null);
+        const existingDecisions = {};
+        (data || []).forEach(inv => {
+          if (inv.decision) existingDecisions[inv.id] = inv.decision;
+        });
+        setDecisions(existingDecisions);
+      } catch (err) {
+        if (!cancelled) setError(err.message || "Failed to load flagged invoices");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const selected = invoices.find(inv => inv.id === selectedId);
   const decision = decisions[selectedId];
 
-  const filtered = FLAGGED_INVOICES.filter(inv => {
+  const filtered = invoices.filter(inv => {
     if (filter === "All") return true;
     if (filter === "High Risk") return inv.score >= 70;
     if (filter === "Review") return inv.score >= 35 && inv.score < 70;
@@ -33,16 +96,43 @@ export default function FraudDetectorPage() {
     return true;
   });
 
-  const totalAtRisk = FLAGGED_INVOICES.filter(inv => inv.score >= 35)
-    .reduce((sum, inv) => sum + parseInt(inv.amount.replace(/[₹,]/g, "")), 0);
+  const totalAtRisk = invoices.filter(inv => inv.score >= 35)
+    .reduce((sum, inv) => sum + (inv.rawAmount || 0), 0);
 
-  const highRiskCount = FLAGGED_INVOICES.filter(inv => inv.score >= 70).length;
-  const reviewCount = FLAGGED_INVOICES.filter(inv => inv.score >= 35 && inv.score < 70).length;
+  const highRiskCount = invoices.filter(inv => inv.score >= 70).length;
+  const reviewCount = invoices.filter(inv => inv.score >= 35 && inv.score < 70).length;
   const confirmedFraud = Object.values(decisions).filter(d => d === "fraud").length;
 
-  const setDecision = (id, value) => {
-    setDecisions(prev => ({ ...prev, [id]: value }));
+  const setDecision = async (id, value) => {
+    const inv = invoices.find(i => i.id === id);
+    if (!inv) return;
+    setSavingDecision(true);
+    try {
+      await api.setFraudDecision(inv.rawId, value);
+      setDecisions(prev => ({ ...prev, [id]: value }));
+    } catch (err) {
+      alert("Failed to save decision: " + (err.message || "unknown error"));
+    } finally {
+      setSavingDecision(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: "center", padding: "80px 0", color: "#9AA7C2" }}>
+        <p style={{ fontSize: 14 }}>Scanning invoices for fraud signals...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ textAlign: "center", padding: "80px 0" }}>
+        <p style={{ fontSize: 14, color: "#DC2626", fontWeight: 600 }}>Couldn't load fraud data</p>
+        <p style={{ fontSize: 13, color: "#9AA7C2", marginTop: 4 }}>{error}</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -75,6 +165,7 @@ export default function FraudDetectorPage() {
         .fd-action-btn.clear:hover { background: #BBF7D0; }
         .fd-action-btn.fraud { background: #FEE2E2; color: #DC2626; }
         .fd-action-btn.fraud:hover { background: #FECACA; }
+        .fd-action-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .fd-score-ring { transition: stroke-dashoffset 0.6s ease; }
       `}</style>
@@ -82,11 +173,10 @@ export default function FraudDetectorPage() {
       <div style={styles.topbar}>
         <div>
           <h1 style={styles.pageTitle}>Fake Invoice Detector</h1>
-          <p style={styles.pageSubtitle}>AI-powered fraud signals across bank changes, amount anomalies, and edit history</p>
+          <p style={styles.pageSubtitle}>AI-powered fraud signals across amount anomalies, dispute history, and invoicing patterns</p>
         </div>
       </div>
 
-      {/* STAT STRIP */}
       <div style={styles.statsGrid}>
         <div style={styles.statCard}>
           <p style={styles.statLabel}>Flagged Invoices</p>
@@ -95,7 +185,7 @@ export default function FraudDetectorPage() {
         </div>
         <div style={styles.statCard}>
           <p style={styles.statLabel}>Amount at Risk</p>
-          <p style={styles.statValue}>₹{totalAtRisk.toLocaleString("en-IN")}</p>
+          <p style={styles.statValue}>{fmt(totalAtRisk)}</p>
           <p style={{ fontSize: 12.5, color: "#6B7894", fontWeight: 500, margin: 0 }}>Across flagged invoices</p>
         </div>
         <div style={styles.statCard}>
@@ -104,14 +194,13 @@ export default function FraudDetectorPage() {
           <p style={{ fontSize: 12.5, color: "#6B7894", fontWeight: 500, margin: 0 }}>Marked this session</p>
         </div>
         <div style={styles.statCard}>
-          <p style={styles.statLabel}>Detection Accuracy</p>
-          <p style={styles.statValue}></p>
-          <p style={{ fontSize: 12.5, color: "#16A34A", fontWeight: 500, margin: 0 }}>Will be available after backend analysis</p>
+          <p style={styles.statLabel}>Total Scanned</p>
+          <p style={styles.statValue}>{invoices.length}</p>
+          <p style={{ fontSize: 12.5, color: "#6B7894", fontWeight: 500, margin: 0 }}>Invoices analyzed</p>
         </div>
       </div>
 
       <div style={styles.twoCol}>
-        {/* LEFT: INVOICE LIST */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={styles.card}>
             <h2 style={styles.cardTitle}>Scanned Invoices</h2>
@@ -159,7 +248,6 @@ export default function FraudDetectorPage() {
           </div>
         </div>
 
-        {/* RIGHT: DETAIL PANEL */}
         <div style={{ flex: 1.4, minWidth: 0 }}>
           {selected && (
             <div style={styles.card}>
@@ -168,12 +256,11 @@ export default function FraudDetectorPage() {
                   <h2 style={styles.cardTitle}>{selected.id}</h2>
                   <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6B7894" }}>{selected.client} · {selected.amount} · Due {selected.due}</p>
                 </div>
-                <span style={{ ...styles.statusBadge, background: STATUS_COLOR[selected.status].bg, color: STATUS_COLOR[selected.status].color }}>
+                <span style={{ ...styles.statusBadge, background: (STATUS_COLOR[selected.status] || STATUS_COLOR.Pending).bg, color: (STATUS_COLOR[selected.status] || STATUS_COLOR.Pending).color }}>
                   {selected.status}
                 </span>
               </div>
 
-              {/* SCORE RING */}
               <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "16px 18px", background: "#FAF7FF", borderRadius: 12, border: "1px solid #F0EAF8", marginBottom: 20 }}>
                 <svg width="76" height="76" viewBox="0 0 76 76">
                   <circle cx="38" cy="38" r="32" fill="none" stroke="#F0EAF8" strokeWidth="8" />
@@ -199,7 +286,6 @@ export default function FraudDetectorPage() {
                 </div>
               </div>
 
-              {/* SIGNALS */}
               <p style={{ fontSize: 12.5, fontWeight: 700, color: "#9AA7C2", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
                 Detected Signals {selected.signals.length === 0 && "— none"}
               </p>
@@ -213,9 +299,8 @@ export default function FraudDetectorPage() {
                 </div>
               ))}
 
-              {/* EDIT/ACTIVITY HISTORY */}
               <p style={{ fontSize: 12.5, fontWeight: 700, color: "#9AA7C2", textTransform: "uppercase", letterSpacing: "0.5px", margin: "20px 0 10px" }}>
-                Activity Timeline
+                Timeline
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                 {selected.history.map((h, i) => (
@@ -229,7 +314,6 @@ export default function FraudDetectorPage() {
                 ))}
               </div>
 
-              {/* ACTIONS */}
               {decision ? (
                 <div style={{
                   marginTop: 20, padding: "13px 16px", borderRadius: 10,
@@ -241,10 +325,10 @@ export default function FraudDetectorPage() {
                 </div>
               ) : (
                 <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-                  <button className="fd-action-btn clear" onClick={() => setDecision(selectedId, "clear")}>
+                  <button className="fd-action-btn clear" disabled={savingDecision} onClick={() => setDecision(selectedId, "clear")}>
                     ✅ Clear & Approve
                   </button>
-                  <button className="fd-action-btn fraud" onClick={() => setDecision(selectedId, "fraud")}>
+                  <button className="fd-action-btn fraud" disabled={savingDecision} onClick={() => setDecision(selectedId, "fraud")}>
                     🚩 Mark as Fraud
                   </button>
                 </div>
@@ -255,7 +339,7 @@ export default function FraudDetectorPage() {
             <div style={{ ...styles.card, textAlign: "center", padding: "64px 24px", color: "#9AA7C2" }}>
               <p style={{ fontSize: 32, margin: "0 0 8px" }}>🛡️</p>
               <p style={{ fontSize: 15, fontWeight: 600, color: "#4A5578", margin: "0 0 4px" }}>No flagged invoices</p>
-              <p style={{ fontSize: 13, margin: 0 }}>Fraud signals will appear here once connected to the backend.</p>
+              <p style={{ fontSize: 13, margin: 0 }}>Nothing looks suspicious right now — that's a good thing.</p>
             </div>
           )}
         </div>

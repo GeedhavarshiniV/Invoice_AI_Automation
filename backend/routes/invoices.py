@@ -8,6 +8,7 @@ from schemas.schemas import InvoiceCreate, InvoiceOut, InvoiceStatusUpdate
 from auth_dependency import get_current_user
 from typing import List
 from datetime import datetime
+from utils.gst import calculate_gst, SELLER_STATE  # NEW
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -32,9 +33,36 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), current_user: Us
 
 @router.post("/", response_model=InvoiceOut)
 def create_invoice(invoice: InvoiceCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if not db.query(Client).filter(Client.id == invoice.client_id).first():
+    client = db.query(Client).filter(Client.id == invoice.client_id).first()
+    if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    new_invoice = Invoice(invoice_number=generate_invoice_number(db), client_id=invoice.client_id, amount=invoice.amount, description=invoice.description, due_date=invoice.due_date, status="Pending")
+
+    # --- GST calculation (NEW) ---
+    # Compares seller's fixed state against the client's state to decide
+    # CGST+SGST (intra-state) vs IGST (inter-state). Raises 400 via
+    # calculate_gst() if the client has no state set.
+    gst = calculate_gst(
+        amount=invoice.amount,
+        seller_state=SELLER_STATE,
+        client_state=client.state,
+        category=invoice.category or "default",
+    )
+
+    new_invoice = Invoice(
+        invoice_number=generate_invoice_number(db),
+        client_id=invoice.client_id,
+        amount=invoice.amount,
+        description=invoice.description,
+        due_date=invoice.due_date,
+        status="Pending",
+        category=invoice.category or "default",
+        tax_type=gst["tax_type"],
+        cgst=gst["cgst_amount"],
+        sgst=gst["sgst_amount"],
+        igst=gst["igst_amount"],
+        total_gst=gst["total_gst"],
+        total_amount=gst["total_amount"],
+    )
     db.add(new_invoice)
     db.commit()
     db.refresh(new_invoice)

@@ -1,4 +1,4 @@
-const BASE_URL = "http://127.0.0.1:8000";
+﻿const BASE_URL = "http://127.0.0.1:8000";
 
 export function saveToken(token) { localStorage.setItem("ledgerly_token", token); }
 export function getToken() { return localStorage.getItem("ledgerly_token"); }
@@ -28,6 +28,7 @@ export const api = {
   getClient: (id) => request("/clients/" + id),
   createClient: (client) => request("/clients/", { method: "POST", body: JSON.stringify(client) }),
   deleteClient: (id) => request("/clients/" + id, { method: "DELETE" }),
+  updateClientState: (id, state) => request("/clients/" + id + "/state", { method: "PATCH", body: JSON.stringify({ state }) }),
   getInvoices: () => request("/invoices/"),
   getInvoice: (id) => request("/invoices/" + id),
   createInvoice: (invoice) => request("/invoices/", { method: "POST", body: JSON.stringify(invoice) }),
@@ -35,7 +36,15 @@ export const api = {
   deleteInvoice: (id) => request("/invoices/" + id, { method: "DELETE" }),
   getExtensions: () => request("/extensions/"),
   createExtension: (ext) => request("/extensions/", { method: "POST", body: JSON.stringify(ext) }),
+  analyzeExtension: (invoiceId) => request("/extensions/analyze/" + invoiceId),
   getSummary: () => request("/reports/summary"),
   getTopClients: () => request("/reports/top-clients"),
   getMonthlyReport: () => request("/reports/monthly"),
+  getFlaggedInvoices: (minScore = 35) => request("/fraud/flagged?min_score=" + minScore),
+  setFraudDecision: (invoiceId, decision) => request("/fraud/" + invoiceId + "/decision", { method: "POST", body: JSON.stringify({ decision }) }),
+  getPendingReminders: () => request("/reminders/pending"),
+  sendReminder: (invoiceId, tone, message) => request("/reminders/" + invoiceId + "/send", { method: "POST", body: JSON.stringify({ tone, message }) }),
+  sendAgentMessage: (message) => request("/agent/message", { method: "POST", body: JSON.stringify({ message }) }),
+  getAgentLogs: () => request("/agent/logs"),
+  getAgentStats: () => request("/agent/stats"),
 };

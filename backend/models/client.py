@@ -3,6 +3,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
 
+
 class Client(Base):
     __tablename__ = "clients"
     id = Column(Integer, primary_key=True, index=True)
@@ -11,6 +12,7 @@ class Client(Base):
     phone = Column(String)
     company = Column(String)
     location = Column(String)
+    state = Column(String, nullable=True)  # NEW: used for GST CGST/SGST vs IGST logic
     risk_score = Column(Float, default=50.0)
     status = Column(String, default="Active")
     created_at = Column(DateTime(timezone=True), server_default=func.now())

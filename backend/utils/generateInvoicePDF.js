@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../api/client";
+import { generateInvoicePDF } from "../utils/generateInvoicePDF";
 
 const STATUS_COLOR = {
   Paid:     { bg: "#DCFCE7", color: "#15803D" },
@@ -107,7 +108,14 @@ function PDFModal({ invoice, onClose }) {
 
   const handleDownload = () => {
     setState("loading");
-    setTimeout(() => { setState("done"); setTimeout(() => setState("idle"), 2500); }, 1800);
+    try {
+      generateInvoicePDF(invoice);
+      setState("done");
+      setTimeout(() => setState("idle"), 2500);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      setState("idle");
+    }
   };
 
   return (
@@ -198,10 +206,16 @@ export default function InvoiceTrackerPage() {
             client: name,
             email: client ? client.email : "—",
             avatar: initials(name),
-            amount: inv.total_amount || inv.amount,
+            amount: inv.amount,
+            total_amount: inv.total_amount,
             status: inv.status,
             issued: fmtDate(inv.issued_date),
             due: fmtDate(inv.due_date),
+            description: inv.description,
+            tax_type: inv.tax_type,
+            cgst: inv.cgst,
+            sgst: inv.sgst,
+            igst: inv.igst,
             stages: buildStages(inv),
             viewAlert: buildAlert(inv),
           };
@@ -255,7 +269,6 @@ export default function InvoiceTrackerPage() {
     <div style={{ fontFamily: "'Inter',sans-serif" }}>
       {showPDF && selected && <PDFModal invoice={selected} onClose={() => setShowPDF(false)} />}
 
-      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <div>
           <h1 style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 24, color: "#1A1140", margin: 0, letterSpacing: "-0.4px" }}>
@@ -270,7 +283,6 @@ export default function InvoiceTrackerPage() {
         </span>
       </div>
 
-      {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
         {stats.map((s) => (
           <div key={s.label} style={{ background: "#fff", borderRadius: 14, padding: "18px 20px", boxShadow: "0 2px 12px rgba(91,42,158,0.08)", border: "1px solid #F0EAF8" }}>
@@ -281,9 +293,7 @@ export default function InvoiceTrackerPage() {
         ))}
       </div>
 
-      {/* Body */}
       <div style={{ display: "flex", gap: 20 }}>
-        {/* Left: Invoice List */}
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
             {filters.map((f) => (
@@ -368,7 +378,6 @@ export default function InvoiceTrackerPage() {
           </div>
         </div>
 
-        {/* Right: Detail Panel */}
         {selected && (
           <div style={{ width: 360, flexShrink: 0 }}>
             <div style={{ background: "#fff", borderRadius: 16, padding: 22, boxShadow: "0 2px 12px rgba(91,42,158,0.08)", border: "1px solid #F0EAF8", position: "sticky", top: 20 }}>

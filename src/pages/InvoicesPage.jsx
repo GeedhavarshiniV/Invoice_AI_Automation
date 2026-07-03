@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { downloadInvoicePDF } from "../utils/generateInvoicePDF";
-
-const ALL_INVOICES = [];
+import { api } from "../api/client";
 
 const STATUS_STYLE = {
   Paid:     { bg: "#DCFCE7", color: "#15803D" },
@@ -11,10 +10,22 @@ const STATUS_STYLE = {
 };
 
 const FILTERS = ["All", "Paid", "Pending", "Overdue", "Disputed"];
-
 const SORT_OPTIONS = ["Newest First", "Oldest First", "Amount High-Low", "Amount Low-High"];
 
-export default function InvoicesPage({ onNavigate }) {
+function fmt(n) { return "₹" + Math.round(n || 0).toLocaleString("en-IN"); }
+function formatDate(d) { if (!d) return "—"; return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); }
+function initials(name) {
+  if (!name) return "?";
+  const parts = name.trim().split(" ");
+  return parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
+}
+
+export default function InvoicesPage() {
+  const [invoices, setInvoices] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [sort, setSort] = useState("Newest First");
@@ -24,9 +35,47 @@ export default function InvoicesPage({ onNavigate }) {
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 8;
 
-  let filtered = ALL_INVOICES.filter(inv => {
-    const matchSearch = inv.client.toLowerCase().includes(search.toLowerCase()) ||
-      inv.id.toLowerCase().includes(search.toLowerCase()) ||
+  const [form, setForm] = useState({ client_id: "", amount: "", category: "default", due_date: "", description: "" });
+  const [creating, setCreating] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  async function loadData() {
+    setLoading(true);
+    setError("");
+    try {
+      const [rawInvoices, rawClients] = await Promise.all([api.getInvoices(), api.getClients()]);
+      setInvoices(rawInvoices || []);
+      setClients(rawClients || []);
+    } catch (err) {
+      setError(err.message || "Failed to load invoices");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadData(); }, []);
+
+  const clientById = (id) => clients.find((c) => c.id === id);
+
+  const ALL_INVOICES = invoices.map((inv) => {
+    const client = clientById(inv.client_id);
+    return {
+      ...inv,
+      displayId: inv.invoice_number,
+      client: client ? client.name : `Client #${inv.client_id}`,
+      email: client ? client.email : "",
+      avatar: initials(client ? client.name : "?"),
+      issued: formatDate(inv.issued_date),
+      due: formatDate(inv.due_date),
+      amount: inv.amount,
+      items: 1,
+    };
+  });
+
+  let filtered = ALL_INVOICES.filter((inv) => {
+    const matchSearch =
+      inv.client.toLowerCase().includes(search.toLowerCase()) ||
+      inv.displayId.toLowerCase().includes(search.toLowerCase()) ||
       inv.email.toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === "All" || inv.status === filter;
     return matchSearch && matchFilter;
@@ -35,19 +84,59 @@ export default function InvoicesPage({ onNavigate }) {
   filtered = [...filtered].sort((a, b) => {
     if (sort === "Amount High-Low") return b.amount - a.amount;
     if (sort === "Amount Low-High") return a.amount - b.amount;
-    if (sort === "Oldest First") return a.id.localeCompare(b.id);
-    return b.id.localeCompare(a.id);
+    if (sort === "Oldest First") return new Date(a.issued_date) - new Date(b.issued_date);
+    return new Date(b.issued_date) - new Date(a.issued_date);
   });
 
-  const totalPages = Math.ceil(filtered.length / perPage);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const paginated = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
 
-  const toggleSelect = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-  const toggleAll = () => setSelected(selected.length === paginated.length ? [] : paginated.map(i => i.id));
+  const toggleSelect = (id) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const toggleAll = () => setSelected(selected.length === paginated.length ? [] : paginated.map((i) => i.id));
 
   const totalAmount = ALL_INVOICES.reduce((s, i) => s + i.amount, 0);
-  const paidAmount = ALL_INVOICES.filter(i => i.status === "Paid").reduce((s, i) => s + i.amount, 0);
-  const pendingAmount = ALL_INVOICES.filter(i => i.status === "Pending" || i.status === "Overdue").reduce((s, i) => s + i.amount, 0);
+  const paidAmount = ALL_INVOICES.filter((i) => i.status === "Paid").reduce((s, i) => s + i.amount, 0);
+  const pendingAmount = ALL_INVOICES.filter((i) => i.status === "Pending" || i.status === "Overdue").reduce((s, i) => s + i.amount, 0);
+
+  async function openNewInvoiceModal() {
+    setFormError("");
+    setForm({ client_id: "", amount: "", category: "default", due_date: "", description: "" });
+    // Re-fetch latest clients so newly added clients appear in the dropdown
+    try {
+      const rawClients = await api.getClients();
+      setClients(rawClients || []);
+    } catch (_) {}
+    setShowModal(true);
+  }
+
+  async function handleCreateInvoice() {
+    setFormError("");
+    if (!form.client_id) { setFormError("Please select a client"); return; }
+    if (!form.amount || Number(form.amount) <= 0) { setFormError("Enter a valid amount"); return; }
+    if (!form.due_date) { setFormError("Pick a due date"); return; }
+
+    setCreating(true);
+    try {
+      await api.createInvoice({
+        client_id: Number(form.client_id),
+        amount: Number(form.amount),
+        description: form.description,
+        due_date: new Date(form.due_date).toISOString(),
+        category: form.category || "default",
+      });
+      setShowModal(false);
+      setForm({ client_id: "", amount: "", category: "default", due_date: "", description: "" });
+      await loadData();
+    } catch (err) {
+      setFormError(err.message || "Failed to create invoice");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  if (loading) {
+    return <div style={{ textAlign: "center", padding: "80px 0", color: "#9AA7C2" }}><p style={{ fontSize: 14 }}>Loading invoices...</p></div>;
+  }
 
   return (
     <div style={styles.page}>
@@ -55,65 +144,32 @@ export default function InvoicesPage({ onNavigate }) {
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
         body { margin: 0; }
-
         @keyframes fadeUp { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
         @keyframes modalIn { from{opacity:0;transform:scale(0.95);} to{opacity:1;transform:scale(1);} }
-        @keyframes spin { to{transform:rotate(360deg);} }
-
         .inv-row { transition: background 0.15s; cursor: pointer; }
         .inv-row:hover { background: #F7F0FF; }
         .inv-row.selected { background: #F3EEFF; }
-
-        .filter-btn {
-          padding: 7px 16px; border-radius: 20px; border: 1.5px solid #E2E8F4;
-          background: #fff; color: #6B7894; font-family: 'Inter', sans-serif;
-          font-size: 13px; font-weight: 500; cursor: pointer;
-          transition: all 0.15s ease;
-        }
+        .filter-btn { padding: 7px 16px; border-radius: 20px; border: 1.5px solid #E2E8F4; background: #fff; color: #6B7894; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s ease; }
         .filter-btn:hover { border-color: #C4B5FD; color: #5B2A9E; }
         .filter-btn.active { background: #5B2A9E; color: #fff; border-color: #5B2A9E; }
-
-        .action-btn {
-          padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer;
-          font-family: 'Inter', sans-serif; font-size: 13.5px; font-weight: 600;
-          transition: transform 0.12s, filter 0.12s;
-        }
+        .action-btn { padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13.5px; font-weight: 600; transition: transform 0.12s, filter 0.12s; }
         .action-btn:hover { transform: translateY(-1px); filter: brightness(1.07); }
         .action-btn.primary { background: linear-gradient(120deg,#FF6B81,#FF9472); color: #fff; box-shadow: 0 6px 16px rgba(255,107,129,0.3); }
         .action-btn.ghost { background: #fff; color: #5B2A9E; border: 1.5px solid #E2E8F4; }
         .action-btn.danger { background: #FEE2E2; color: #B91C1C; }
-
-        .search-input {
-          width: 100%; padding: 10px 16px 10px 40px; border-radius: 9px;
-          border: 1.5px solid #E2E8F4; background: #F7F9FC;
-          font-family: 'Inter', sans-serif; font-size: 14px; color: #2A3554; outline: none;
-          transition: border-color 0.18s, box-shadow 0.18s;
-        }
+        .action-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .search-input { width: 100%; padding: 10px 16px 10px 40px; border-radius: 9px; border: 1.5px solid #E2E8F4; background: #F7F9FC; font-family: 'Inter', sans-serif; font-size: 14px; color: #2A3554; outline: none; transition: border-color 0.18s, box-shadow 0.18s; }
         .search-input:focus { border-color: #A78BFA; box-shadow: 0 0 0 4px rgba(167,139,250,0.12); background: #fff; }
         .search-input::placeholder { color: #9AA7C2; }
-
-        .sort-select {
-          padding: 9px 14px; border-radius: 9px; border: 1.5px solid #E2E8F4;
-          background: #fff; font-family: 'Inter', sans-serif; font-size: 13.5px;
-          color: #2A3554; outline: none; cursor: pointer;
-        }
-        .sort-select:focus { border-color: #A78BFA; }
-
-        .page-btn {
-          width: 34px; height: 34px; border-radius: 8px; border: 1.5px solid #E2E8F4;
-          background: #fff; color: #2A3554; font-size: 13px; font-weight: 600;
-          cursor: pointer; display: flex; align-items: center; justify-content: center;
-          transition: all 0.15s;
-        }
+        .sort-select { padding: 9px 14px; border-radius: 9px; border: 1.5px solid #E2E8F4; background: #fff; font-family: 'Inter', sans-serif; font-size: 13.5px; color: #2A3554; outline: none; cursor: pointer; }
+        .page-btn { width: 34px; height: 34px; border-radius: 8px; border: 1.5px solid #E2E8F4; background: #fff; color: #2A3554; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
         .page-btn:hover { border-color: #A78BFA; color: #5B2A9E; }
         .page-btn.active { background: #5B2A9E; color: #fff; border-color: #5B2A9E; }
         .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
         .modal-overlay { position:fixed; inset:0; background:rgba(26,17,64,0.5); z-index:999; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
-        .modal-box { background:#fff; border-radius:18px; padding:32px; width:520px; max-width:95vw; animation:modalIn 0.25s ease; box-shadow:0 24px 60px rgba(26,17,64,0.25); }
-
+        .modal-box { background:#fff; border-radius:18px; padding:32px; width:520px; max-width:95vw; animation:modalIn 0.25s ease; box-shadow:0 24px 60px rgba(26,17,64,0.25); max-height: 90vh; overflow-y: auto; }
         .checkbox-custom { width:16px; height:16px; accent-color:#5B2A9E; cursor:pointer; }
-
+        .form-input, .form-select { width:100%; padding:"11px 14px"; border-radius:9px; border:1.5px solid #E2E8F4; font-size:14px; font-family:'Inter',sans-serif; outline:none; color:#1A1140; background:#F7F9FC; }
         ::-webkit-scrollbar { width:6px; }
         ::-webkit-scrollbar-track { background:#F4F7FC; }
         ::-webkit-scrollbar-thumb { background:#D0BDF4; border-radius:6px; }
@@ -125,29 +181,29 @@ export default function InvoicesPage({ onNavigate }) {
           <h1 style={styles.pageTitle}>Invoices</h1>
           <p style={styles.pageSubtitle}>{ALL_INVOICES.length} total invoices · {filtered.length} shown</p>
         </div>
-        <div style={{ display:"flex", gap:10 }}>
-          {selected.length > 0 && (
-            <button className="action-btn danger">🗑 Delete ({selected.length})</button>
-          )}
-          <button className="action-btn primary" onClick={() => setShowModal(true)}>+ New Invoice</button>
+        <div style={{ display: "flex", gap: 10 }}>
+          {selected.length > 0 && <button className="action-btn danger">🗑 Delete ({selected.length})</button>}
+          <button className="action-btn primary" onClick={openNewInvoiceModal}>+ New Invoice</button>
         </div>
       </div>
+
+      {error && <div style={{ background: "#FEE2E2", color: "#B91C1C", padding: "10px 16px", borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
 
       {/* SUMMARY CARDS */}
       <div style={styles.summaryRow}>
         {[
-          { label: "Total Billed", value: `₹${totalAmount.toLocaleString()}`, icon: "📋", color: "#5B2A9E", bg: "#F3EEFF" },
-          { label: "Collected", value: `₹${paidAmount.toLocaleString()}`, icon: "✅", color: "#16A34A", bg: "#DCFCE7" },
-          { label: "Outstanding", value: `₹${pendingAmount.toLocaleString()}`, icon: "⏳", color: "#D97706", bg: "#FEF9C3" },
-          { label: "Total Invoices", value: ALL_INVOICES.length, icon: "📄", color: "#0EA5E9", bg: "#E0F2FE" },
+          { label: "Total Billed", value: fmt(totalAmount), icon: "📋", bg: "#F3EEFF" },
+          { label: "Collected", value: fmt(paidAmount), icon: "✅", bg: "#DCFCE7" },
+          { label: "Outstanding", value: fmt(pendingAmount), icon: "⏳", bg: "#FEF9C3" },
+          { label: "Total Invoices", value: ALL_INVOICES.length, icon: "📄", bg: "#E0F2FE" },
         ].map((s, i) => (
           <div key={i} style={{ ...styles.summaryCard, animationDelay: `${i * 0.07}s` }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <p style={{ margin:"0 0 4px", fontSize:12, fontWeight:700, color:"#9AA7C2", textTransform:"uppercase", letterSpacing:"0.5px" }}>{s.label}</p>
-                <p style={{ margin:0, fontFamily:"'Space Grotesk',sans-serif", fontSize:24, fontWeight:700, color:"#1A1140" }}>{s.value}</p>
+                <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 700, color: "#9AA7C2", textTransform: "uppercase", letterSpacing: "0.5px" }}>{s.label}</p>
+                <p style={{ margin: 0, fontFamily: "'Space Grotesk',sans-serif", fontSize: 24, fontWeight: 700, color: "#1A1140" }}>{s.value}</p>
               </div>
-              <div style={{ width:44, height:44, borderRadius:12, background:s.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>{s.icon}</div>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: s.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{s.icon}</div>
             </div>
           </div>
         ))}
@@ -155,23 +211,20 @@ export default function InvoicesPage({ onNavigate }) {
 
       {/* FILTERS + SEARCH */}
       <div style={styles.controlsRow}>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          {FILTERS.map(f => (
-            <button key={f} className={`filter-btn${filter===f?" active":""}`} onClick={() => { setFilter(f); setCurrentPage(1); }}>
-              {f}
-              <span style={{ marginLeft:6, fontSize:11, opacity:0.75 }}>
-                {f==="All" ? ALL_INVOICES.length : ALL_INVOICES.filter(i=>i.status===f).length}
-              </span>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {FILTERS.map((f) => (
+            <button key={f} className={`filter-btn${filter === f ? " active" : ""}`} onClick={() => { setFilter(f); setCurrentPage(1); }}>
+              {f}<span style={{ marginLeft: 6, fontSize: 11, opacity: 0.75 }}>{f === "All" ? ALL_INVOICES.length : ALL_INVOICES.filter((i) => i.status === f).length}</span>
             </button>
           ))}
         </div>
-        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-          <div style={{ position:"relative", width:240 }}>
-            <span style={{ position:"absolute", left:12, top:11, fontSize:14, color:"#9AA7C2" }}>🔍</span>
-            <input className="search-input" placeholder="Search by name, ID, email..." value={search} onChange={e => { setSearch(e.target.value); setCurrentPage(1); }} />
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ position: "relative", width: 240 }}>
+            <span style={{ position: "absolute", left: 12, top: 11, fontSize: 14, color: "#9AA7C2" }}>🔍</span>
+            <input className="search-input" placeholder="Search by name, ID, email..." value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} />
           </div>
-          <select className="sort-select" value={sort} onChange={e => setSort(e.target.value)}>
-            {SORT_OPTIONS.map(o => <option key={o}>{o}</option>)}
+          <select className="sort-select" value={sort} onChange={(e) => setSort(e.target.value)}>
+            {SORT_OPTIONS.map((o) => <option key={o}>{o}</option>)}
           </select>
         </div>
       </div>
@@ -180,61 +233,40 @@ export default function InvoicesPage({ onNavigate }) {
       <div style={styles.tableCard}>
         <table style={styles.table}>
           <thead>
-            <tr style={{ borderBottom:"2px solid #F0EAF8" }}>
-              <th style={styles.th}>
-                <input type="checkbox" className="checkbox-custom" checked={selected.length === paginated.length && paginated.length > 0} onChange={toggleAll} />
-              </th>
-              {["Invoice ID", "Client", "Issued", "Due Date", "Amount", "Items", "Status", "Actions"].map(h => (
-                <th key={h} style={styles.th}>{h}</th>
-              ))}
+            <tr style={{ borderBottom: "2px solid #F0EAF8" }}>
+              <th style={styles.th}><input type="checkbox" className="checkbox-custom" checked={selected.length === paginated.length && paginated.length > 0} onChange={toggleAll} /></th>
+              {["Invoice ID", "Client", "Issued", "Due Date", "Amount", "GST", "Status", "Actions"].map((h) => <th key={h} style={styles.th}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
             {paginated.length === 0 ? (
-              <tr><td colSpan={9} style={{ textAlign:"center", padding:"48px 0", color:"#9AA7C2", fontSize:15 }}>No invoices found</td></tr>
-            ) : paginated.map((inv, i) => (
-              <tr key={inv.id} className={`inv-row${selected.includes(inv.id)?" selected":""}`} style={{ borderBottom:"1px solid #F4F0FC" }}>
+              <tr><td colSpan={9} style={{ textAlign: "center", padding: "48px 0", color: "#9AA7C2", fontSize: 15 }}>No invoices found</td></tr>
+            ) : paginated.map((inv) => (
+              <tr key={inv.id} className={`inv-row${selected.includes(inv.id) ? " selected" : ""}`} style={{ borderBottom: "1px solid #F4F0FC" }}>
+                <td style={styles.td}><input type="checkbox" className="checkbox-custom" checked={selected.includes(inv.id)} onChange={() => toggleSelect(inv.id)} onClick={(e) => e.stopPropagation()} /></td>
+                <td style={styles.td}><span style={{ fontWeight: 700, color: "#5B2A9E", fontSize: 13 }}>{inv.displayId}</span></td>
                 <td style={styles.td}>
-                  <input type="checkbox" className="checkbox-custom" checked={selected.includes(inv.id)} onChange={() => toggleSelect(inv.id)} onClick={e => e.stopPropagation()} />
-                </td>
-                <td style={styles.td}><span style={{ fontWeight:700, color:"#5B2A9E", fontSize:13 }}>{inv.id}</span></td>
-                <td style={styles.td}>
-                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <div style={{ width:34, height:34, borderRadius:"50%", background:`hsl(${inv.client.charCodeAt(0)*5%360},55%,68%)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0 }}>
-                      {inv.avatar}
-                    </div>
-                    <div>
-                      <p style={{ margin:0, fontWeight:600, fontSize:13.5, color:"#1A1140" }}>{inv.client}</p>
-                      <p style={{ margin:0, fontSize:12, color:"#9AA7C2" }}>{inv.email}</p>
-                    </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: `hsl(${inv.client.charCodeAt(0) * 5 % 360},55%,68%)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{inv.avatar}</div>
+                    <div><p style={{ margin: 0, fontWeight: 600, fontSize: 13.5, color: "#1A1140" }}>{inv.client}</p><p style={{ margin: 0, fontSize: 12, color: "#9AA7C2" }}>{inv.email}</p></div>
                   </div>
                 </td>
-                <td style={styles.td}><span style={{ fontSize:13, color:"#9AA7C2" }}>{inv.issued}</span></td>
-                <td style={styles.td}><span style={{ fontSize:13, color: inv.status==="Overdue"?"#B91C1C":"#4A5578", fontWeight: inv.status==="Overdue"?600:400 }}>{inv.due}</span></td>
-                <td style={styles.td}><span style={{ fontFamily:"'Space Grotesk',sans-serif", fontWeight:700, fontSize:14, color:"#1A1140" }}>₹{inv.amount.toLocaleString()}</span></td>
-                <td style={styles.td}><span style={{ fontSize:13, color:"#6B7894" }}>{inv.items} items</span></td>
+                <td style={styles.td}><span style={{ fontSize: 13, color: "#9AA7C2" }}>{inv.issued}</span></td>
+                <td style={styles.td}><span style={{ fontSize: 13, color: inv.status === "Overdue" ? "#B91C1C" : "#4A5578", fontWeight: inv.status === "Overdue" ? 600 : 400 }}>{inv.due}</span></td>
+                <td style={styles.td}><span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 14, color: "#1A1140" }}>{fmt(inv.amount)}</span></td>
                 <td style={styles.td}>
-                  <span style={{ padding:"4px 12px", borderRadius:20, fontSize:12, fontWeight:600, background:STATUS_STYLE[inv.status].bg, color:STATUS_STYLE[inv.status].color }}>
-                    {inv.status}
-                  </span>
+                  {inv.tax_type ? (
+                    <div>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#5B2A9E" }}>{inv.tax_type === "CGST_SGST" ? "CGST+SGST" : "IGST"}</p>
+                      <p style={{ margin: 0, fontSize: 11.5, color: "#9AA7C2" }}>{fmt(inv.total_gst)} · Total {fmt(inv.total_amount)}</p>
+                    </div>
+                  ) : <span style={{ fontSize: 12, color: "#9AA7C2" }}>—</span>}
                 </td>
+                <td style={styles.td}><span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: STATUS_STYLE[inv.status]?.bg, color: STATUS_STYLE[inv.status]?.color }}>{inv.status}</span></td>
                 <td style={styles.td}>
-                  <div style={{ display:"flex", gap:6 }}>
-                    <button onClick={() => setViewInvoice(inv)} style={{ background:"none", border:"1.5px solid #E2E8F4", borderRadius:7, padding:"5px 12px", fontSize:12, fontWeight:600, color:"#5B2A9E", cursor:"pointer", transition:"all 0.15s" }}
-                      onMouseOver={e=>e.currentTarget.style.borderColor="#A78BFA"}
-                      onMouseOut={e=>e.currentTarget.style.borderColor="#E2E8F4"}>
-                      View
-                    </button>
-                    <button onClick={() => downloadInvoicePDF(inv)} title={`Download ${inv.id} as PDF`} style={{ background:"none", border:"1.5px solid #E2E8F4", borderRadius:7, padding:"5px 12px", fontSize:12, fontWeight:600, color:"#5B2A9E", cursor:"pointer", transition:"all 0.15s" }}
-                      onMouseOver={e=>e.currentTarget.style.borderColor="#A78BFA"}
-                      onMouseOut={e=>e.currentTarget.style.borderColor="#E2E8F4"}>
-                      ⬇ PDF
-                    </button>
-                    {(inv.status === "Pending" || inv.status === "Overdue") && (
-                      <button style={{ background:"none", border:"1.5px solid #FCA5A5", borderRadius:7, padding:"5px 12px", fontSize:12, fontWeight:600, color:"#DC2626", cursor:"pointer" }}>
-                        Remind
-                      </button>
-                    )}
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => setViewInvoice(inv)} style={{ background: "none", border: "1.5px solid #E2E8F4", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#5B2A9E", cursor: "pointer" }}>View</button>
+                    <button onClick={() => downloadInvoicePDF(inv)} style={{ background: "none", border: "1.5px solid #E2E8F4", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#5B2A9E", cursor: "pointer" }}>⬇ PDF</button>
                   </div>
                 </td>
               </tr>
@@ -242,51 +274,68 @@ export default function InvoicesPage({ onNavigate }) {
           </tbody>
         </table>
 
-        {/* PAGINATION */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"16px 0 4px" }}>
-          <p style={{ fontSize:13, color:"#9AA7C2", margin:0 }}>
-            Showing {Math.min((currentPage-1)*perPage+1, filtered.length)}–{Math.min(currentPage*perPage, filtered.length)} of {filtered.length} invoices
-          </p>
-          <div style={{ display:"flex", gap:6 }}>
-            <button className="page-btn" disabled={currentPage===1} onClick={()=>setCurrentPage(p=>p-1)}>‹</button>
-            {Array.from({length:totalPages},(_,i)=>i+1).map(p=>(
-              <button key={p} className={`page-btn${currentPage===p?" active":""}`} onClick={()=>setCurrentPage(p)}>{p}</button>
-            ))}
-            <button className="page-btn" disabled={currentPage===totalPages} onClick={()=>setCurrentPage(p=>p+1)}>›</button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 0 4px" }}>
+          <p style={{ fontSize: 13, color: "#9AA7C2", margin: 0 }}>Showing {Math.min((currentPage - 1) * perPage + 1, filtered.length)}–{Math.min(currentPage * perPage, filtered.length)} of {filtered.length} invoices</p>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button className="page-btn" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)}>‹</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => <button key={p} className={`page-btn${currentPage === p ? " active" : ""}`} onClick={() => setCurrentPage(p)}>{p}</button>)}
+            <button className="page-btn" disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => p + 1)}>›</button>
           </div>
         </div>
       </div>
 
       {/* NEW INVOICE MODAL */}
       {showModal && (
-        <div className="modal-overlay" onClick={()=>setShowModal(false)}>
-          <div className="modal-box" onClick={e=>e.stopPropagation()}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
-              <h2 style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:20, fontWeight:700, color:"#1A1140", margin:0 }}>Create New Invoice</h2>
-              <button onClick={()=>setShowModal(false)} style={{ background:"none", border:"none", fontSize:22, color:"#9AA7C2", cursor:"pointer" }}>×</button>
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 20, fontWeight: 700, color: "#1A1140", margin: 0 }}>Create New Invoice</h2>
+              <button onClick={() => setShowModal(false)} style={{ background: "none", border: "none", fontSize: 22, color: "#9AA7C2", cursor: "pointer" }}>×</button>
             </div>
-            {[
-              { label:"Client Name", placeholder:"e.g. Arjun Sharma", type:"text" },
-              { label:"Client Email", placeholder:"e.g. arjun@company.com", type:"email" },
-              { label:"Amount (₹)", placeholder:"e.g. 25000", type:"number" },
-              { label:"Due Date", placeholder:"", type:"date" },
-            ].map(field => (
-              <div key={field.label} style={{ marginBottom:16 }}>
-                <label style={{ fontSize:13, fontWeight:600, color:"#2A3554", display:"block", marginBottom:6 }}>{field.label}</label>
-                <input type={field.type} placeholder={field.placeholder} style={{ width:"100%", padding:"11px 14px", borderRadius:9, border:"1.5px solid #E2E8F4", fontSize:14, fontFamily:"'Inter',sans-serif", outline:"none", color:"#1A1140", background:"#F7F9FC" }}
-                  onFocus={e=>{e.target.style.borderColor="#A78BFA";e.target.style.background="#fff";}}
-                  onBlur={e=>{e.target.style.borderColor="#E2E8F4";e.target.style.background="#F7F9FC";}} />
-              </div>
-            ))}
-            <div style={{ marginBottom:20 }}>
-              <label style={{ fontSize:13, fontWeight:600, color:"#2A3554", display:"block", marginBottom:6 }}>Description</label>
-              <textarea placeholder="Invoice description..." rows={3} style={{ width:"100%", padding:"11px 14px", borderRadius:9, border:"1.5px solid #E2E8F4", fontSize:14, fontFamily:"'Inter',sans-serif", outline:"none", resize:"vertical", color:"#1A1140", background:"#F7F9FC" }}
-                onFocus={e=>{e.target.style.borderColor="#A78BFA";e.target.style.background="#fff";}}
-                onBlur={e=>{e.target.style.borderColor="#E2E8F4";e.target.style.background="#F7F9FC";}} />
+
+            {formError && <div style={{ background: "#FEE2E2", color: "#B91C1C", padding: "10px 14px", borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{formError}</div>}
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#2A3554", display: "block", marginBottom: 6 }}>Client</label>
+              <select className="form-select" style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1.5px solid #E2E8F4", fontSize: 14, background: "#F7F9FC" }} value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })}>
+                <option value="">Select a client...</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name} {c.state ? `— ${c.state}` : "— no state set"}</option>
+                ))}
+              </select>
+              {form.client_id && !clientById(Number(form.client_id))?.state && (
+                <p style={{ fontSize: 12, color: "#D97706", margin: "6px 0 0" }}>⚠ This client has no state set — GST can't be calculated. Set their state on the Clients page first.</p>
+              )}
             </div>
-            <div style={{ display:"flex", gap:10 }}>
-              <button onClick={()=>setShowModal(false)} className="action-btn ghost" style={{ flex:1 }}>Cancel</button>
-              <button className="action-btn primary" style={{ flex:2 }} onClick={()=>setShowModal(false)}>Create Invoice</button>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#2A3554", display: "block", marginBottom: 6 }}>Amount (₹, before GST)</label>
+              <input type="number" placeholder="e.g. 25000" style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1.5px solid #E2E8F4", fontSize: 14, background: "#F7F9FC" }} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#2A3554", display: "block", marginBottom: 6 }}>Category</label>
+              <select style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1.5px solid #E2E8F4", fontSize: 14, background: "#F7F9FC" }} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                <option value="default">Default (18%)</option>
+                <option value="electronics">Electronics (18%)</option>
+                <option value="software">Software (18%)</option>
+                <option value="consulting">Consulting (18%)</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#2A3554", display: "block", marginBottom: 6 }}>Due Date</label>
+              <input type="date" style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1.5px solid #E2E8F4", fontSize: 14, background: "#F7F9FC" }} value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#2A3554", display: "block", marginBottom: 6 }}>Description</label>
+              <textarea placeholder="Invoice description..." rows={3} style={{ width: "100%", padding: "11px 14px", borderRadius: 9, border: "1.5px solid #E2E8F4", fontSize: 14, resize: "vertical", background: "#F7F9FC" }} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowModal(false)} className="action-btn ghost" style={{ flex: 1 }}>Cancel</button>
+              <button className="action-btn primary" style={{ flex: 2 }} onClick={handleCreateInvoice} disabled={creating}>{creating ? "Creating..." : "Create Invoice"}</button>
             </div>
           </div>
         </div>
@@ -294,41 +343,58 @@ export default function InvoicesPage({ onNavigate }) {
 
       {/* VIEW INVOICE MODAL */}
       {viewInvoice && (
-        <div className="modal-overlay" onClick={()=>setViewInvoice(null)}>
-          <div className="modal-box" onClick={e=>e.stopPropagation()} style={{ width:560 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24 }}>
+        <div className="modal-overlay" onClick={() => setViewInvoice(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ width: 560 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
               <div>
-                <h2 style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:20, fontWeight:700, color:"#1A1140", margin:"0 0 4px" }}>{viewInvoice.id}</h2>
-                <span style={{ padding:"4px 12px", borderRadius:20, fontSize:12, fontWeight:600, background:STATUS_STYLE[viewInvoice.status].bg, color:STATUS_STYLE[viewInvoice.status].color }}>{viewInvoice.status}</span>
+                <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 20, fontWeight: 700, color: "#1A1140", margin: "0 0 4px" }}>{viewInvoice.displayId}</h2>
+                <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: STATUS_STYLE[viewInvoice.status]?.bg, color: STATUS_STYLE[viewInvoice.status]?.color }}>{viewInvoice.status}</span>
               </div>
-              <button onClick={()=>setViewInvoice(null)} style={{ background:"none", border:"none", fontSize:22, color:"#9AA7C2", cursor:"pointer" }}>×</button>
+              <button onClick={() => setViewInvoice(null)} style={{ background: "none", border: "none", fontSize: 22, color: "#9AA7C2", cursor: "pointer" }}>×</button>
             </div>
-            <div style={{ background:"#F7F9FC", borderRadius:12, padding:"16px 20px", marginBottom:20 }}>
-              <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:12 }}>
-                <div style={{ width:42, height:42, borderRadius:"50%", background:`hsl(${viewInvoice.client.charCodeAt(0)*5%360},55%,68%)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:700, color:"#fff" }}>{viewInvoice.avatar}</div>
-                <div>
-                  <p style={{ margin:0, fontWeight:700, fontSize:15, color:"#1A1140" }}>{viewInvoice.client}</p>
-                  <p style={{ margin:0, fontSize:13, color:"#9AA7C2" }}>{viewInvoice.email}</p>
-                </div>
+
+            <div style={{ background: "#F7F9FC", borderRadius: 12, padding: "16px 20px", marginBottom: 16 }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
+                <div style={{ width: 42, height: 42, borderRadius: "50%", background: `hsl(${viewInvoice.client.charCodeAt(0) * 5 % 360},55%,68%)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff" }}>{viewInvoice.avatar}</div>
+                <div><p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: "#1A1140" }}>{viewInvoice.client}</p><p style={{ margin: 0, fontSize: 13, color: "#9AA7C2" }}>{viewInvoice.email}</p></div>
               </div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 {[
-                  { label:"Amount", value:`₹${viewInvoice.amount.toLocaleString()}` },
-                  { label:"Items", value:`${viewInvoice.items} line items` },
-                  { label:"Issued", value:viewInvoice.issued },
-                  { label:"Due Date", value:viewInvoice.due },
-                ].map(d=>(
-                  <div key={d.label} style={{ background:"#fff", borderRadius:8, padding:"10px 14px" }}>
-                    <p style={{ margin:"0 0 2px", fontSize:11.5, fontWeight:600, color:"#9AA7C2", textTransform:"uppercase" }}>{d.label}</p>
-                    <p style={{ margin:0, fontSize:14, fontWeight:600, color:"#1A1140" }}>{d.value}</p>
+                  { label: "Amount before GST", value: fmt(viewInvoice.amount) },
+                  { label: "Issued", value: viewInvoice.issued },
+                  { label: "Due Date", value: viewInvoice.due },
+                  { label: "Total (incl. GST)", value: fmt(viewInvoice.total_amount) },
+                ].map((d) => (
+                  <div key={d.label} style={{ background: "#fff", borderRadius: 8, padding: "10px 14px" }}>
+                    <p style={{ margin: "0 0 2px", fontSize: 11.5, fontWeight: 600, color: "#9AA7C2", textTransform: "uppercase" }}>{d.label}</p>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#1A1140" }}>{d.value}</p>
                   </div>
                 ))}
               </div>
             </div>
-            <div style={{ display:"flex", gap:10 }}>
-              <button className="action-btn ghost" style={{ flex:1 }}>📤 Send Reminder</button>
-              <button onClick={() => downloadInvoicePDF(viewInvoice)} className="action-btn ghost" style={{ flex:1 }}>⬇ Download PDF</button>
-              <button className="action-btn primary" style={{ flex:1 }}>✏️ Edit</button>
+
+            {/* GST BREAKDOWN */}
+            {viewInvoice.tax_type && (
+              <div style={{ background: "#F3EEFF", borderRadius: 12, padding: "16px 20px", marginBottom: 20 }}>
+                <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "#5B2A9E", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  GST Breakdown — {viewInvoice.tax_type === "CGST_SGST" ? "Intra-state (CGST + SGST)" : "Inter-state (IGST)"}
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: viewInvoice.tax_type === "CGST_SGST" ? "1fr 1fr" : "1fr", gap: 10 }}>
+                  {viewInvoice.tax_type === "CGST_SGST" ? (
+                    <>
+                      <div><p style={{ margin: 0, fontSize: 12, color: "#6B7894" }}>CGST</p><p style={{ margin: 0, fontWeight: 700, color: "#1A1140" }}>{fmt(viewInvoice.cgst)}</p></div>
+                      <div><p style={{ margin: 0, fontSize: 12, color: "#6B7894" }}>SGST</p><p style={{ margin: 0, fontWeight: 700, color: "#1A1140" }}>{fmt(viewInvoice.sgst)}</p></div>
+                    </>
+                  ) : (
+                    <div><p style={{ margin: 0, fontSize: 12, color: "#6B7894" }}>IGST</p><p style={{ margin: 0, fontWeight: 700, color: "#1A1140" }}>{fmt(viewInvoice.igst)}</p></div>
+                  )}
+                </div>
+                <p style={{ margin: "10px 0 0", fontSize: 13, fontWeight: 700, color: "#5B2A9E" }}>Total GST: {fmt(viewInvoice.total_gst)}</p>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => downloadInvoicePDF(viewInvoice)} className="action-btn ghost" style={{ flex: 1 }}>⬇ Download PDF</button>
             </div>
           </div>
         </div>
@@ -338,15 +404,15 @@ export default function InvoicesPage({ onNavigate }) {
 }
 
 const styles = {
-  page: { fontFamily:"'Inter',sans-serif", padding:"28px 32px", minHeight:"100vh", background:"#F4F7FC" },
-  topbar: { display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 },
-  pageTitle: { fontFamily:"'Space Grotesk',sans-serif", fontSize:24, fontWeight:700, color:"#1A1140", margin:0, letterSpacing:"-0.4px" },
-  pageSubtitle: { fontSize:13.5, color:"#6B7894", margin:"4px 0 0" },
-  summaryRow: { display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:22 },
-  summaryCard: { background:"#fff", borderRadius:14, padding:"18px 20px", boxShadow:"0 2px 12px rgba(91,42,158,0.07)", border:"1px solid #F0EAF8", animation:"fadeUp 0.4s ease both" },
-  controlsRow: { display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:12 },
-  tableCard: { background:"#fff", borderRadius:14, padding:"20px 24px", boxShadow:"0 2px 12px rgba(91,42,158,0.07)", border:"1px solid #F0EAF8" },
-  table: { width:"100%", borderCollapse:"collapse" },
-  th: { textAlign:"left", fontSize:11.5, fontWeight:700, color:"#9AA7C2", textTransform:"uppercase", letterSpacing:"0.5px", padding:"0 12px 14px 0" },
-  td: { padding:"13px 12px 13px 0", verticalAlign:"middle" },
+  page: { fontFamily: "'Inter',sans-serif", padding: "28px 32px", minHeight: "100vh", background: "#F4F7FC" },
+  topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
+  pageTitle: { fontFamily: "'Space Grotesk',sans-serif", fontSize: 24, fontWeight: 700, color: "#1A1140", margin: 0, letterSpacing: "-0.4px" },
+  pageSubtitle: { fontSize: 13.5, color: "#6B7894", margin: "4px 0 0" },
+  summaryRow: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 22 },
+  summaryCard: { background: "#fff", borderRadius: 14, padding: "18px 20px", boxShadow: "0 2px 12px rgba(91,42,158,0.07)", border: "1px solid #F0EAF8", animation: "fadeUp 0.4s ease both" },
+  controlsRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 },
+  tableCard: { background: "#fff", borderRadius: 14, padding: "20px 24px", boxShadow: "0 2px 12px rgba(91,42,158,0.07)", border: "1px solid #F0EAF8" },
+  table: { width: "100%", borderCollapse: "collapse" },
+  th: { textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "#9AA7C2", textTransform: "uppercase", letterSpacing: "0.5px", padding: "0 12px 14px 0" },
+  td: { padding: "13px 12px 13px 0", verticalAlign: "middle" },
 };

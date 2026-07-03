@@ -5,16 +5,13 @@ import { HelmetProvider } from 'react-helmet-async';
 import { ThemeProvider } from "./context/ThemeContext";
 import App from './App';
 
-<ThemeProvider>
-    <BrowserRouter>
-        <App />
-    </BrowserRouter>
-</ThemeProvider> 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <HelmetProvider>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ThemeProvider>
   </HelmetProvider>
 );
