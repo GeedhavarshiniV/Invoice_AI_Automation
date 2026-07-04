@@ -4,7 +4,7 @@ from database import get_db
 from models.invoice import Invoice
 from models.client import Client
 from models.user import User
-from schemas.schemas import InvoiceCreate, InvoiceOut, InvoiceStatusUpdate
+from schemas.schemas import InvoiceCreate, InvoiceOut, InvoiceStatusUpdate, InvoiceTrackOut
 from auth_dependency import get_current_user
 from typing import List
 from datetime import datetime
@@ -16,6 +16,33 @@ router = APIRouter(prefix="/invoices", tags=["Invoices"])
 def generate_invoice_number(db):
     count = db.query(Invoice).count()
     return f"INV-{1000 + count + 1}"
+
+
+# PUBLIC — no auth. Must come before /{invoice_id} so it isn't swallowed by that route.
+@router.get("/track/{invoice_number}", response_model=InvoiceTrackOut)
+def track_invoice(invoice_number: str, db: Session = Depends(get_db)):
+    invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_number).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    return InvoiceTrackOut(
+        invoice_number=invoice.invoice_number,
+        amount=invoice.amount,
+        total_amount=invoice.total_amount,
+        status=invoice.status,
+        issued_date=invoice.issued_date,
+        due_date=invoice.due_date,
+        paid_date=invoice.paid_date,
+        description=invoice.description,
+        category=invoice.category,
+        tax_type=invoice.tax_type,
+        cgst=invoice.cgst,
+        sgst=invoice.sgst,
+        igst=invoice.igst,
+        total_gst=invoice.total_gst,
+        client_name=invoice.client.name,
+        client_email=invoice.client.email,
+    )
 
 
 @router.get("/", response_model=List[InvoiceOut])
@@ -37,10 +64,6 @@ def create_invoice(invoice: InvoiceCreate, db: Session = Depends(get_db), curren
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    # --- GST calculation (NEW) ---
-    # Compares seller's fixed state against the client's state to decide
-    # CGST+SGST (intra-state) vs IGST (inter-state). Raises 400 via
-    # calculate_gst() if the client has no state set.
     gst = calculate_gst(
         amount=invoice.amount,
         seller_state=SELLER_STATE,

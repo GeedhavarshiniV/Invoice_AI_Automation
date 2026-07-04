@@ -1,480 +1,369 @@
-import React, { useState, useEffect } from "react";
-import { api } from "../api/client";
-import { generateInvoicePDF } from "../utils/generateInvoicePDF";
+import jsPDF from "jspdf";
 
-const STATUS_COLOR = {
-  Paid:     { bg: "#DCFCE7", color: "#15803D" },
-  Pending:  { bg: "#FEF9C3", color: "#A16207" },
-  Overdue:  { bg: "#FEE2E2", color: "#B91C1C" },
-  Disputed: { bg: "#FEE2E2", color: "#B91C1C" },
+// ---- Your business details ----
+const SELLER = {
+  name: "Ledgerly AI Solutions",
+  address: "Chennai, Tamil Nadu, India",
+  phone: "+91 93420 47341",
+  email: "support@ledgerly.ai",
+  gstin: "—",
 };
 
-const STAGE_ICONS = { issued: "📤", due: "📅", paid: "✅" };
+const BANK = {
+  bankName: "HDFC Bank",
+  accountNumber: "50100123456789",
+  ifsc: "HDFC0001234",
+  branch: "Chennai Main Branch",
+};
 
-function fmt(n) {
-  return "₹" + Math.round(n || 0).toLocaleString("en-IN");
+const JURISDICTION = "CHENNAI";
+
+function money(n) {
+  return (n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function initials(name) {
-  if (!name) return "?";
-  const parts = name.trim().split(" ");
-  return parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
+// ---- Number to words (Indian numbering system) ----
+function numberToWords(num) {
+  const a = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+    "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const b = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  function inWords(n) {
+    if (n < 20) return a[n];
+    if (n < 100) return b[Math.floor(n / 10)] + (n % 10 ? " " + a[n % 10] : "");
+    if (n < 1000) return a[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + inWords(n % 100) : "");
+    return "";
+  }
+
+  num = Math.floor(num);
+  if (num === 0) return "Zero";
+
+  let str = "";
+  const crore = Math.floor(num / 10000000); num %= 10000000;
+  const lakh = Math.floor(num / 100000); num %= 100000;
+  const thousand = Math.floor(num / 1000); num %= 1000;
+  const rest = num;
+
+  if (crore) str += inWords(crore) + " Crore ";
+  if (lakh) str += inWords(lakh) + " Lakh ";
+  if (thousand) str += inWords(thousand) + " Thousand ";
+  if (rest) str += inWords(rest);
+
+  return str.trim();
 }
 
-function fmtDate(dateStr) {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
+export function generateInvoicePDF(invoice) {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageWidth = 595;
+  const margin = 36;
+  const contentWidth = pageWidth - margin * 2;
+  let y = 40;
 
-function buildStages(inv) {
-  const now = new Date();
-  const due = new Date(inv.due_date);
-  return [
-    { key: "issued", label: "Issued", done: true, timestamp: fmtDate(inv.issued_date) },
-    { key: "due", label: "Due Date", done: now >= due || inv.status === "Paid", timestamp: fmtDate(inv.due_date) },
-    { key: "paid", label: "Paid", done: inv.status === "Paid", timestamp: inv.paid_date ? fmtDate(inv.paid_date) : null },
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.75);
+
+  // ---- Title ----
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(0, 0, 0);
+  doc.text("TAX INVOICE", pageWidth / 2, y, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("(Original for Recipient)", pageWidth - margin, y - 4, { align: "right" });
+  y += 14;
+
+  // ============ SELLER / INVOICE META BOX ============
+  const boxTop1 = y;
+  const box1Height = 96;
+  const sellerColWidth = contentWidth * 0.55;
+
+  doc.rect(margin, boxTop1, contentWidth, box1Height);
+  doc.line(margin + sellerColWidth, boxTop1, margin + sellerColWidth, boxTop1 + box1Height);
+
+  // Seller info (left)
+  let sy = boxTop1 + 14;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(SELLER.name, margin + 8, sy);
+  sy += 13;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.text(SELLER.address, margin + 8, sy);
+  sy += 12;
+  doc.text(`GSTIN: ${SELLER.gstin}`, margin + 8, sy);
+  sy += 12;
+  doc.text(`Email: ${SELLER.email}`, margin + 8, sy);
+  sy += 12;
+  doc.text(`Ph: ${SELLER.phone}`, margin + 8, sy);
+
+  // Invoice meta (right)
+  const metaX = margin + sellerColWidth + 8;
+  const metaValX = margin + sellerColWidth + 110;
+  let my = boxTop1 + 14;
+  const metaRows = [
+    ["Invoice No.", invoice.displayId || invoice.invoice_number || "-"],
+    ["Dated", invoice.issued || "-"],
+    ["Due Date", invoice.due || "-"],
+    ["Status", (invoice.status || "PENDING").toUpperCase()],
+    ["Mode of Payment", "Bank Transfer"],
   ];
-}
+  doc.setFontSize(8.5);
+  metaRows.forEach(([label, value]) => {
+    doc.setFont("helvetica", "normal");
+    doc.text(label, metaX, my);
+    doc.setFont("helvetica", "bold");
+    doc.text(String(value), metaValX, my);
+    my += 15.5;
+  });
 
-function buildAlert(inv) {
-  const due = new Date(inv.due_date);
-  const now = new Date();
-  if (inv.status === "Overdue") {
-    const daysOverdue = Math.max(1, Math.round((now - due) / 86400000));
-    return `Overdue by ${daysOverdue} day${daysOverdue > 1 ? "s" : ""} — follow-up recommended.`;
-  }
-  if (inv.status === "Pending") {
-    const daysLeft = Math.round((due - now) / 86400000);
-    if (daysLeft >= 0 && daysLeft <= 3) return `Due in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`;
-  }
-  if (inv.status === "Disputed") {
-    return "Marked as disputed — needs review.";
-  }
-  return null;
-}
+  y = boxTop1 + box1Height;
 
-function TrackerTimeline({ stages }) {
-  return (
-    <div style={{ display: "flex", alignItems: "flex-start", width: "100%" }}>
-      {stages.map((stage, i) => {
-        const isLast = i === stages.length - 1;
-        const isDone = stage.done;
-        const isNext = !isDone && i > 0 && stages[i - 1].done;
-        return (
-          <div key={stage.key} style={{ display: "flex", alignItems: "flex-start", flex: isLast ? 0 : 1 }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 72 }}>
-              <div style={{
-                width: 38, height: 38, borderRadius: "50%",
-                background: isDone ? "linear-gradient(135deg,#FF6B81,#FF9472)" : isNext ? "#fff" : "#F4F7FC",
-                border: isDone ? "none" : isNext ? "2px solid #FF9472" : "2px solid #E2E8F4",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 16,
-                boxShadow: isDone ? "0 4px 12px rgba(255,107,129,0.3)" : "none",
-              }}>
-                <span style={{ fontSize: isDone ? 16 : 13, opacity: isDone ? 1 : 0.4 }}>
-                  {STAGE_ICONS[stage.key]}
-                </span>
-              </div>
-              <div style={{ marginTop: 6, textAlign: "center" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: isDone ? "#1A1140" : "#9AA7C2", fontFamily: "'Space Grotesk',sans-serif" }}>
-                  {stage.label}
-                </div>
-                {stage.timestamp && (
-                  <div style={{ fontSize: 10, color: "#9AA7C2", marginTop: 2, lineHeight: 1.3 }}>
-                    {stage.timestamp}
-                  </div>
-                )}
-              </div>
-            </div>
-            {!isLast && (
-              <div style={{
-                flex: 1, height: 2, marginTop: 18,
-                background: isDone && stages[i + 1]?.done
-                  ? "linear-gradient(90deg,#FF6B81,#FF9472)"
-                  : isDone
-                  ? "linear-gradient(90deg,#FF9472,#E2E8F4)"
-                  : "#E2E8F4",
-              }} />
-            )}
-          </div>
-        );
-      })}
-    </div>
+  // ============ BUYER BOX ============
+  const box2Height = 70;
+  doc.rect(margin, y, contentWidth, box2Height);
+  let by = y + 14;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("Buyer (Bill To):", margin + 8, by);
+  by += 14;
+  doc.setFontSize(9.5);
+  doc.text(invoice.client || "-", margin + 8, by);
+  by += 13;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  if (invoice.client_address) { doc.text(invoice.client_address, margin + 8, by); by += 12; }
+  const contactBits = [];
+  if (invoice.email) contactBits.push(invoice.email);
+  if (invoice.client_phone) contactBits.push(`Ph: ${invoice.client_phone}`);
+  if (contactBits.length) doc.text(contactBits.join("   |   "), margin + 8, by);
+
+  y += box2Height;
+
+  // ============ ITEMS TABLE ============
+  const colX = {
+    sl: margin,
+    desc: margin + 30,
+    hsn: margin + 260,
+    qty: margin + 330,
+    rate: margin + 385,
+    per: margin + 450,
+    amount: margin + contentWidth,
+  };
+  const headerHeight = 20;
+  doc.rect(margin, y, contentWidth, headerHeight);
+  [colX.desc, colX.hsn, colX.qty, colX.rate, colX.per].forEach((x) => doc.line(x, y, x, y + headerHeight));
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("Sl", colX.sl + 10, y + 13, { align: "center" });
+  doc.text("Description of Goods / Services", colX.desc + 6, y + 13);
+  doc.text("HSN/SAC", colX.hsn + 6, y + 13);
+  doc.text("Qty", colX.qty + 15, y + 13, { align: "center" });
+  doc.text("Rate", colX.rate + 25, y + 13, { align: "center" });
+  doc.text("Amount", colX.amount - 6, y + 13, { align: "right" });
+
+  y += headerHeight;
+
+  const lineDescription = invoice.description && invoice.description.trim()
+    ? invoice.description
+    : (invoice.category ? `${invoice.category.charAt(0).toUpperCase()}${invoice.category.slice(1)} services` : "Services rendered");
+  const wrappedDesc = doc.splitTextToSize(lineDescription, 220);
+  const rowHeight = Math.max(24, wrappedDesc.length * 11 + 12);
+
+  doc.rect(margin, y, contentWidth, rowHeight);
+  [colX.desc, colX.hsn, colX.qty, colX.rate, colX.per].forEach((x) => doc.line(x, y, x, y + rowHeight));
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.text("1", colX.sl + 10, y + 14, { align: "center" });
+  doc.text(wrappedDesc, colX.desc + 6, y + 14);
+  doc.text("—", colX.hsn + 6, y + 14);
+  doc.text("1", colX.qty + 15, y + 14, { align: "center" });
+  doc.text(money(invoice.amount), colX.rate + 25, y + 14, { align: "center" });
+  doc.text(money(invoice.amount), colX.amount - 6, y + 14, { align: "right" });
+
+  y += rowHeight;
+
+  // Tax rows inside the same table block
+  const taxRows = [];
+  if (invoice.tax_type === "CGST_SGST") {
+    taxRows.push(["CGST", invoice.cgst]);
+    taxRows.push(["SGST", invoice.sgst]);
+  } else if (invoice.tax_type === "IGST") {
+    taxRows.push(["IGST", invoice.igst]);
+  }
+  taxRows.push(["TOTAL", invoice.total_amount != null ? invoice.total_amount : invoice.amount]);
+
+  const taxRowHeight = 16;
+  taxRows.forEach(([label, value]) => {
+    doc.rect(margin, y, contentWidth, taxRowHeight);
+    const isTotal = label === "TOTAL";
+    doc.setFont("helvetica", isTotal ? "bold" : "normal");
+    doc.setFontSize(8.5);
+    doc.text(label, colX.per + 6, y + 11.5);
+    doc.text(money(value), colX.amount - 6, y + 11.5, { align: "right" });
+    y += taxRowHeight;
+  });
+
+  // ---- Amount chargeable in words ----
+  const wordsBoxHeight = 30;
+  doc.rect(margin, y, contentWidth, wordsBoxHeight);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("Amount Chargeable (in words)", margin + 8, y + 12);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  const totalForWords = invoice.total_amount != null ? invoice.total_amount : invoice.amount;
+  const wordsLine = doc.splitTextToSize(
+    `INR ${numberToWords(totalForWords)} Only`,
+    contentWidth - 16
   );
-}
+  doc.text(wordsLine, margin + 8, y + 24);
+  y += wordsBoxHeight;
 
-function PDFModal({ invoice, onClose }) {
-  const [state, setState] = useState("idle"); // idle | loading | done
-
-  const handleDownload = () => {
-    setState("loading");
-    try {
-      generateInvoicePDF(invoice);
-      setState("done");
-      setTimeout(() => setState("idle"), 2500);
-    } catch (err) {
-      console.error("PDF generation failed:", err);
-      setState("idle");
-    }
+  // ============ HSN / TAX SUMMARY TABLE ============
+  const taxType = invoice.tax_type;
+  const sumHeaderHeight = 16;
+  const sumColX = {
+    hsn: margin,
+    taxable: margin + 100,
+    rateCol: margin + 220,
+    amtCol: margin + 280,
+    rateCol2: margin + 350,
+    amtCol2: margin + 410,
+    total: margin + contentWidth,
   };
 
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(26,17,64,0.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ background: "#fff", borderRadius: 18, border: "1px solid #F0EAF8", width: "100%", maxWidth: 480, padding: 28, position: "relative", boxShadow: "0 20px 60px rgba(91,42,158,0.18)" }}>
-        <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, background: "#F4F7FC", border: "none", color: "#6B7894", width: 30, height: 30, borderRadius: "50%", cursor: "pointer", fontSize: 16 }}>×</button>
-
-        <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 17, color: "#1A1140", marginBottom: 2 }}>PDF Invoice</div>
-        <div style={{ color: "#9AA7C2", fontSize: 13, marginBottom: 18 }}>{invoice.id} · {invoice.client}</div>
-
-        <div style={{ background: "#FAFAFA", border: "1px solid #F0EAF8", borderRadius: 12, padding: "20px 22px", marginBottom: 18 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-            <div>
-              <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 800, fontSize: 20, color: "#1A1140" }}>LEDGERLY</div>
-              <div style={{ fontSize: 11, color: "#9AA7C2", marginTop: 1 }}>Smart Invoice Management</div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 14, color: "#1A1140" }}>{invoice.id}</div>
-              <div style={{ fontSize: 11, color: "#9AA7C2" }}>Issued: {invoice.issued}</div>
-              <div style={{ fontSize: 11, color: "#9AA7C2" }}>Due: {invoice.due}</div>
-            </div>
-          </div>
-          <div style={{ height: 1, background: "#F0EAF8", marginBottom: 14 }} />
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 10, color: "#9AA7C2", marginBottom: 3, fontWeight: 600 }}>BILLED TO</div>
-            <div style={{ fontWeight: 600, fontSize: 13, color: "#1A1140" }}>{invoice.client}</div>
-            <div style={{ fontSize: 12, color: "#6B7894" }}>{invoice.email}</div>
-          </div>
-          <div style={{ height: 1, background: "#F0EAF8", margin: "12px 0" }} />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#F7F0FF", borderRadius: 8, padding: "10px 14px" }}>
-            <span style={{ fontSize: 13, color: "#5B2A9E" }}>Professional Services</span>
-            <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 800, fontSize: 16, color: "#1A1140" }}>{fmt(invoice.amount)}</span>
-          </div>
-          <div style={{ marginTop: 10, padding: "8px 12px", background: "#FFF8F5", borderRadius: 8, border: "1px solid #FFE4D4" }}>
-            <div style={{ fontSize: 10, color: "#9AA7C2", marginBottom: 2, fontWeight: 600 }}>TRACKER LINK</div>
-            <div style={{ fontSize: 11, color: "#FF6B81", fontFamily: "monospace" }}>ledgerly.app/track/{invoice.id.toLowerCase()}</div>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            onClick={handleDownload}
-            style={{
-              flex: 1, padding: "11px", borderRadius: 10, border: "none", cursor: "pointer",
-              background: state === "done" ? "linear-gradient(120deg,#16A34A,#15803D)" : "linear-gradient(120deg,#FF6B81,#FF9472)",
-              color: "#fff", fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 14,
-              transition: "all 0.3s",
-            }}
-          >
-            {state === "loading" ? "⏳ Generating..." : state === "done" ? "✅ Downloaded!" : "⬇️ Download PDF"}
-          </button>
-          <button
-            onClick={() => navigator.clipboard?.writeText(`ledgerly.app/track/${invoice.id.toLowerCase()}`)}
-            style={{ padding: "11px 16px", borderRadius: 10, border: "1.5px solid #E2E8F4", background: "#fff", color: "#5B2A9E", cursor: "pointer", fontFamily: "'Space Grotesk',sans-serif", fontWeight: 600, fontSize: 13 }}
-          >
-            🔗 Copy Link
-          </button>
-        </div>
-      </div>
-    </div>
+  doc.rect(margin, y, contentWidth, sumHeaderHeight);
+  [sumColX.taxable, sumColX.rateCol, sumColX.amtCol, sumColX.rateCol2, sumColX.amtCol2].forEach((x) =>
+    doc.line(x, y, x, y + sumHeaderHeight)
   );
-}
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.text("HSN/SAC", sumColX.hsn + 6, y + 11);
+  doc.text("Taxable Value", sumColX.taxable + 6, y + 11);
+  if (taxType === "CGST_SGST") {
+    doc.text("CGST Rate", sumColX.rateCol + 6, y + 11);
+    doc.text("CGST Amt", sumColX.amtCol + 6, y + 11);
+    doc.text("SGST Rate", sumColX.rateCol2 + 6, y + 11);
+    doc.text("SGST Amt", sumColX.amtCol2 + 6, y + 11);
+  } else {
+    doc.text("IGST Rate", sumColX.rateCol + 6, y + 11);
+    doc.text("IGST Amt", sumColX.amtCol + 6, y + 11);
+  }
+  y += sumHeaderHeight;
 
-export default function InvoiceTrackerPage() {
-  const [invoices, setInvoices] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [selected, setSelected] = useState(null);
-  const [showPDF, setShowPDF] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
-  const [filter, setFilter] = useState("All");
+  const sumRowHeight = 16;
+  doc.rect(margin, y, contentWidth, sumRowHeight);
+  [sumColX.taxable, sumColX.rateCol, sumColX.amtCol, sumColX.rateCol2, sumColX.amtCol2].forEach((x) =>
+    doc.line(x, y, x, y + sumRowHeight)
+  );
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("—", sumColX.hsn + 6, y + 11);
+  doc.text(money(invoice.amount), sumColX.taxable + 6, y + 11);
+  if (taxType === "CGST_SGST") {
+    const rate = invoice.amount ? ((invoice.cgst / invoice.amount) * 100).toFixed(1) : "0.0";
+    doc.text(`${rate}%`, sumColX.rateCol + 6, y + 11);
+    doc.text(money(invoice.cgst), sumColX.amtCol + 6, y + 11);
+    doc.text(`${rate}%`, sumColX.rateCol2 + 6, y + 11);
+    doc.text(money(invoice.sgst), sumColX.amtCol2 + 6, y + 11);
+  } else if (taxType === "IGST") {
+    const rate = invoice.amount ? ((invoice.igst / invoice.amount) * 100).toFixed(1) : "0.0";
+    doc.text(`${rate}%`, sumColX.rateCol + 6, y + 11);
+    doc.text(money(invoice.igst), sumColX.amtCol + 6, y + 11);
+  }
+  y += sumRowHeight;
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError("");
-      try {
-        const [rawInvoices, rawClients] = await Promise.all([api.getInvoices(), api.getClients()]);
-        if (cancelled) return;
-        const clientById = (id) => (rawClients || []).find((c) => c.id === id);
-        const enriched = (rawInvoices || []).map((inv) => {
-          const client = clientById(inv.client_id);
-          const name = client ? client.name : `Client #${inv.client_id}`;
-          return {
-            id: inv.invoice_number,
-            rawId: inv.id,
-            client: name,
-            email: client ? client.email : "—",
-            avatar: initials(name),
-            amount: inv.amount,
-            total_amount: inv.total_amount,
-            status: inv.status,
-            issued: fmtDate(inv.issued_date),
-            due: fmtDate(inv.due_date),
-            description: inv.description,
-            tax_type: inv.tax_type,
-            cgst: inv.cgst,
-            sgst: inv.sgst,
-            igst: inv.igst,
-            stages: buildStages(inv),
-            viewAlert: buildAlert(inv),
-          };
-        });
-        setInvoices(enriched);
-        setSelected(enriched[0] ?? null);
-      } catch (err) {
-        if (!cancelled) setError(err.message || "Failed to load invoices");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, []);
+  // ---- Tax amount in words ----
+  const taxWordsHeight = 26;
+  doc.rect(margin, y, contentWidth, taxWordsHeight);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("Tax Amount (in words):", margin + 8, y + 12);
+  doc.setFont("helvetica", "bold");
+  const totalGst = invoice.total_gst || 0;
+  const taxWordsLine = doc.splitTextToSize(`INR ${numberToWords(totalGst)} Only`, contentWidth - 140);
+  doc.text(taxWordsLine, margin + 150, y + 12);
+  y += taxWordsHeight;
 
-  const filters = ["All", "Overdue", "Pending", "Paid"];
-  const filtered = filter === "All" ? invoices : invoices.filter((i) => i.status === filter);
+  // ============ GSTIN/PAN + BANK DETAILS ============
+  const bankBoxHeight = 78;
+  const leftColWidth = contentWidth * 0.42;
+  doc.rect(margin, y, contentWidth, bankBoxHeight);
+  doc.line(margin + leftColWidth, y, margin + leftColWidth, y + bankBoxHeight);
 
-  const stats = [
-    { label: "Total Invoices", value: invoices.length, icon: "📋", color: "#5B2A9E" },
-    { label: "Paid", value: invoices.filter((i) => i.status === "Paid").length, icon: "✅", color: "#16A34A" },
-    { label: "Overdue", value: invoices.filter((i) => i.status === "Overdue").length, icon: "⚠️", color: "#DC2626" },
-    { label: "Pending", value: invoices.filter((i) => i.status === "Pending").length, icon: "⏳", color: "#D97706" },
+  let gy = y + 14;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.text(`GSTIN: ${SELLER.gstin}`, margin + 8, gy);
+  gy += 14;
+  doc.text(`PAN: —`, margin + 8, gy);
+
+  let bky = y + 14;
+  const bankX = margin + leftColWidth + 8;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.text("Company's Bank Details", bankX, bky);
+  bky += 13;
+  doc.setFont("helvetica", "normal");
+  const bankLines = [
+    ["Bank Name", BANK.bankName],
+    ["A/c No.", BANK.accountNumber],
+    ["IFSC Code", BANK.ifsc],
+    ["Branch", BANK.branch],
   ];
+  bankLines.forEach(([label, value]) => {
+    doc.text(`${label}: ${value}`, bankX, bky);
+    bky += 13;
+  });
 
-  const handleCopyLink = () => {
-    navigator.clipboard?.writeText(`ledgerly.app/track/${selected.id.toLowerCase()}`);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
-  };
+  y += bankBoxHeight;
 
-  if (loading) {
-    return (
-      <div style={{ textAlign: "center", padding: "80px 0", color: "#9AA7C2" }}>
-        <p style={{ fontSize: 14 }}>Loading invoices...</p>
-      </div>
-    );
-  }
+  // ============ DECLARATION + SIGNATURE ============
+  const declBoxHeight = 90;
+  doc.rect(margin, y, contentWidth, declBoxHeight);
+  doc.line(margin + leftColWidth, y, margin + leftColWidth, y + declBoxHeight);
 
-  if (error) {
-    return (
-      <div style={{ textAlign: "center", padding: "80px 0" }}>
-        <p style={{ fontSize: 14, color: "#DC2626", fontWeight: 600 }}>Couldn't load invoices</p>
-        <p style={{ fontSize: 13, color: "#9AA7C2", marginTop: 4 }}>{error}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ fontFamily: "'Inter',sans-serif" }}>
-      {showPDF && selected && <PDFModal invoice={selected} onClose={() => setShowPDF(false)} />}
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 24, color: "#1A1140", margin: 0, letterSpacing: "-0.4px" }}>
-            Invoice Tracker
-          </h1>
-          <p style={{ fontSize: 13.5, color: "#6B7894", margin: "4px 0 0" }}>
-            Track every invoice through its payment journey in real time.
-          </p>
-        </div>
-        <span style={{ fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 20, background: "#FEE2E2", color: "#B91C1C", border: "1px solid #FECACA" }}>
-          ● LIVE
-        </span>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
-        {stats.map((s) => (
-          <div key={s.label} style={{ background: "#fff", borderRadius: 14, padding: "18px 20px", boxShadow: "0 2px 12px rgba(91,42,158,0.08)", border: "1px solid #F0EAF8" }}>
-            <div style={{ fontSize: 20, marginBottom: 8 }}>{s.icon}</div>
-            <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 26, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: 12, color: "#9AA7C2", marginTop: 2 }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", gap: 20 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-            {filters.map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                style={{
-                  padding: "6px 16px", borderRadius: 20,
-                  border: `1.5px solid ${filter === f ? "#5B2A9E" : "#E2E8F4"}`,
-                  background: filter === f ? "#F7F0FF" : "#fff",
-                  color: filter === f ? "#5B2A9E" : "#6B7894",
-                  fontFamily: "'Space Grotesk',sans-serif", fontWeight: 600,
-                  fontSize: 13, cursor: "pointer",
-                }}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-
-          {filtered.length === 0 && (
-            <div style={{ textAlign: "center", padding: "48px 0", color: "#9AA7C2" }}>
-              <p style={{ fontSize: 32, margin: "0 0 8px" }}>🔍</p>
-              <p style={{ fontSize: 15, fontWeight: 600, color: "#4A5578", margin: "0 0 4px" }}>No invoices to track</p>
-              <p style={{ fontSize: 13, margin: 0 }}>Try a different filter, or add invoices from the Invoices page.</p>
-            </div>
-          )}
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {filtered.map((inv) => {
-              const sc = STATUS_COLOR[inv.status] || STATUS_COLOR.Pending;
-              const isSelected = selected?.rawId === inv.rawId;
-              return (
-                <div
-                  key={inv.rawId}
-                  onClick={() => setSelected(inv)}
-                  style={{
-                    background: "#fff",
-                    border: `1.5px solid ${isSelected ? "#5B2A9E" : "#F0EAF8"}`,
-                    borderRadius: 14,
-                    padding: "16px 18px",
-                    cursor: "pointer",
-                    boxShadow: isSelected ? "0 0 0 3px rgba(91,42,158,0.1)" : "0 2px 8px rgba(91,42,158,0.06)",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-                        background: `hsl(${inv.client.charCodeAt(0) * 5 % 360},60%,72%)`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 12, fontWeight: 700, color: "#fff",
-                      }}>{inv.avatar}</div>
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                          <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, color: "#5B2A9E", fontSize: 13.5 }}>{inv.id}</span>
-                          <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 9px", borderRadius: 20, background: sc.bg, color: sc.color }}>{inv.status}</span>
-                        </div>
-                        <div style={{ color: "#6B7894", fontSize: 12.5, marginTop: 3 }}>{inv.client}</div>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 15, color: "#1A1140" }}>{fmt(inv.amount)}</div>
-                      <div style={{ fontSize: 11.5, color: "#9AA7C2", marginTop: 2 }}>Due {inv.due}</div>
-                    </div>
-                  </div>
-
-                  {inv.viewAlert && (
-                    <div style={{
-                      marginTop: 10, padding: "8px 12px", borderRadius: 8,
-                      background: inv.status === "Overdue" ? "#FFF5F5" : "#FFFBEB",
-                      border: `1px solid ${inv.status === "Overdue" ? "#FECACA" : "#FDE68A"}`,
-                      fontSize: 12, color: inv.status === "Overdue" ? "#B91C1C" : "#92400E",
-                    }}>
-                      {inv.status === "Overdue" ? "⚠️" : "ℹ️"} {inv.viewAlert}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {selected && (
-          <div style={{ width: 360, flexShrink: 0 }}>
-            <div style={{ background: "#fff", borderRadius: 16, padding: 22, boxShadow: "0 2px 12px rgba(91,42,158,0.08)", border: "1px solid #F0EAF8", position: "sticky", top: 20 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
-                <div>
-                  <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 800, fontSize: 18, color: "#1A1140" }}>{selected.id}</div>
-                  <div style={{ color: "#6B7894", fontSize: 13, marginTop: 2 }}>{selected.client}</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 800, fontSize: 20, color: "#1A1140" }}>{fmt(selected.amount)}</div>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: (STATUS_COLOR[selected.status] || STATUS_COLOR.Pending).bg, color: (STATUS_COLOR[selected.status] || STATUS_COLOR.Pending).color }}>
-                    {selected.status}
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ background: "#F7F9FC", borderRadius: 12, padding: "16px 10px", marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#9AA7C2", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Payment Journey</div>
-                <TrackerTimeline stages={selected.stages} />
-              </div>
-
-              {selected.viewAlert && (
-                <div style={{
-                  padding: "10px 14px", borderRadius: 10, marginBottom: 14,
-                  background: selected.status === "Overdue" ? "#FFF5F5" : "#FFFBEB",
-                  border: `1px solid ${selected.status === "Overdue" ? "#FECACA" : "#FDE68A"}`,
-                  fontSize: 12.5, color: selected.status === "Overdue" ? "#B91C1C" : "#92400E",
-                }}>
-                  {selected.status === "Overdue" ? "⚠️" : "ℹ️"} {selected.viewAlert}
-                </div>
-              )}
-
-              <div style={{ background: "#F7F0FF", border: "1px solid #EDE9FE", borderRadius: 10, padding: "12px 14px", marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: "#9AA7C2", marginBottom: 6, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Shareable Tracker Link</div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <div style={{ flex: 1, fontFamily: "monospace", fontSize: 12, color: "#5B2A9E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    ledgerly.app/track/{selected.id.toLowerCase()}
-                  </div>
-                  <button
-                    onClick={handleCopyLink}
-                    style={{
-                      padding: "5px 12px", borderRadius: 8,
-                      border: "1.5px solid #DDD6FE",
-                      background: linkCopied ? "#DCFCE7" : "#fff",
-                      color: linkCopied ? "#15803D" : "#5B2A9E",
-                      cursor: "pointer", fontFamily: "'Space Grotesk',sans-serif",
-                      fontWeight: 600, fontSize: 12, whiteSpace: "nowrap", transition: "all 0.2s",
-                    }}
-                  >
-                    {linkCopied ? "✅ Copied!" : "🔗 Copy"}
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ background: "#FFF8F5", border: "1px solid #FFE4D4", borderRadius: 10, padding: "12px 14px", marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: "#9AA7C2", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 }}>📱 What {selected.client.split(" ")[0]} Sees</div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  {selected.stages.map((stage) => (
-                    <div key={stage.key} style={{ textAlign: "center", flex: 1 }}>
-                      <div style={{
-                        width: 28, height: 28, borderRadius: "50%", margin: "0 auto 4px",
-                        background: stage.done ? "linear-gradient(135deg,#FF6B81,#FF9472)" : "#F0EAF8",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 12, color: stage.done ? "#fff" : "#9AA7C2", fontWeight: 700,
-                      }}>
-                        {stage.done ? "✓" : "·"}
-                      </div>
-                      <div style={{ fontSize: 10, color: stage.done ? "#1A1140" : "#9AA7C2", fontWeight: stage.done ? 600 : 400 }}>{stage.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  onClick={() => setShowPDF(true)}
-                  style={{
-                    flex: 1, padding: "11px", borderRadius: 10, border: "none", cursor: "pointer",
-                    background: "linear-gradient(120deg,#FF6B81,#FF9472)",
-                    color: "#fff", fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 13,
-                    boxShadow: "0 4px 14px rgba(255,107,129,0.3)",
-                  }}
-                >
-                  ⬇️ View & Download PDF
-                </button>
-                <button style={{
-                  padding: "11px 14px", borderRadius: 10, border: "1.5px solid #E2E8F4",
-                  background: "#fff", color: "#5B2A9E", cursor: "pointer",
-                  fontFamily: "'Space Grotesk',sans-serif", fontWeight: 600, fontSize: 13,
-                }}>
-                  📧 Resend
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+  let dy = y + 14;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("Declaration", margin + 8, dy);
+  dy += 12;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  const declText = doc.splitTextToSize(
+    "We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct.",
+    leftColWidth - 16
   );
+  doc.text(declText, margin + 8, dy);
+
+  const sigX = margin + leftColWidth + 8;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.text(`For ${SELLER.name}`, sigX, y + 14);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text("Authorized Signatory", sigX, y + declBoxHeight - 10);
+
+  y += declBoxHeight;
+
+  // ---- Jurisdiction footer ----
+  y += 16;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text(`SUBJECT TO ${JURISDICTION} JURISDICTION`, pageWidth / 2, y, { align: "center" });
+
+  // ---- Save ----
+  const fileName = `Invoice-${invoice.displayId || invoice.invoice_number || "draft"}.pdf`;
+  doc.save(fileName);
 }
+
+export const downloadInvoicePDF = generateInvoicePDF;
+
+
+
+
+
+
+

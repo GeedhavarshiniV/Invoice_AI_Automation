@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../api/client";
+import { generateInvoicePDF } from "../utils/generateInvoicePDF";
 
 const STATUS_COLOR = {
   Paid:     { bg: "#DCFCE7", color: "#15803D" },
@@ -9,6 +10,11 @@ const STATUS_COLOR = {
 };
 
 const STAGE_ICONS = { issued: "📤", due: "📅", paid: "✅" };
+
+// NEW — builds the real, working tracker URL for an invoice
+function getTrackerUrl(invoice) {
+  return `${window.location.origin}/track/${invoice.id}`;
+}
 
 function fmt(n) {
   return "₹" + Math.round(n || 0).toLocaleString("en-IN");
@@ -103,11 +109,22 @@ function TrackerTimeline({ stages }) {
 }
 
 function PDFModal({ invoice, onClose }) {
-  const [state, setState] = useState("idle"); // idle | loading | done
+  const [state, setState] = useState("idle"); // idle | loading | done | error
 
   const handleDownload = () => {
     setState("loading");
-    setTimeout(() => { setState("done"); setTimeout(() => setState("idle"), 2500); }, 1800);
+    setTimeout(() => {
+      try {
+        generateInvoicePDF(invoice);
+        setState("done");
+      } catch (err) {
+        console.error("PDF generation failed:", err);
+        setState("error");
+        alert("Couldn't generate the PDF. Check the browser console for the error details.");
+      } finally {
+        setTimeout(() => setState("idle"), 2500);
+      }
+    }, 400);
   };
 
   return (
@@ -143,24 +160,28 @@ function PDFModal({ invoice, onClose }) {
           </div>
           <div style={{ marginTop: 10, padding: "8px 12px", background: "#FFF8F5", borderRadius: 8, border: "1px solid #FFE4D4" }}>
             <div style={{ fontSize: 10, color: "#9AA7C2", marginBottom: 2, fontWeight: 600 }}>TRACKER LINK</div>
-            <div style={{ fontSize: 11, color: "#FF6B81", fontFamily: "monospace" }}>ledgerly.app/track/{invoice.id.toLowerCase()}</div>
+            <div style={{ fontSize: 11, color: "#FF6B81", fontFamily: "monospace" }}>{getTrackerUrl(invoice)}</div>
           </div>
         </div>
 
         <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={handleDownload}
+            disabled={state === "loading"}
             style={{
-              flex: 1, padding: "11px", borderRadius: 10, border: "none", cursor: "pointer",
-              background: state === "done" ? "linear-gradient(120deg,#16A34A,#15803D)" : "linear-gradient(120deg,#FF6B81,#FF9472)",
+              flex: 1, padding: "11px", borderRadius: 10, border: "none",
+              cursor: state === "loading" ? "wait" : "pointer",
+              background: state === "done" ? "linear-gradient(120deg,#16A34A,#15803D)"
+                : state === "error" ? "linear-gradient(120deg,#DC2626,#B91C1C)"
+                : "linear-gradient(120deg,#FF6B81,#FF9472)",
               color: "#fff", fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 14,
               transition: "all 0.3s",
             }}
           >
-            {state === "loading" ? "⏳ Generating..." : state === "done" ? "✅ Downloaded!" : "⬇️ Download PDF"}
+            {state === "loading" ? "⏳ Generating..." : state === "done" ? "✅ Downloaded!" : state === "error" ? "❌ Failed" : "⬇️ Download PDF"}
           </button>
           <button
-            onClick={() => navigator.clipboard?.writeText(`ledgerly.app/track/${invoice.id.toLowerCase()}`)}
+            onClick={() => navigator.clipboard?.writeText(getTrackerUrl(invoice))}
             style={{ padding: "11px 16px", borderRadius: 10, border: "1.5px solid #E2E8F4", background: "#fff", color: "#5B2A9E", cursor: "pointer", fontFamily: "'Space Grotesk',sans-serif", fontWeight: 600, fontSize: 13 }}
           >
             🔗 Copy Link
@@ -199,9 +220,15 @@ export default function InvoiceTrackerPage() {
             email: client ? client.email : "—",
             avatar: initials(name),
             amount: inv.total_amount || inv.amount,
+            total_amount: inv.total_amount || inv.amount,
             status: inv.status,
             issued: fmtDate(inv.issued_date),
             due: fmtDate(inv.due_date),
+            description: inv.description || "Professional Services",
+            tax_type: inv.tax_type || null,
+            cgst: inv.cgst || 0,
+            sgst: inv.sgst || 0,
+            igst: inv.igst || 0,
             stages: buildStages(inv),
             viewAlert: buildAlert(inv),
           };
@@ -229,7 +256,7 @@ export default function InvoiceTrackerPage() {
   ];
 
   const handleCopyLink = () => {
-    navigator.clipboard?.writeText(`ledgerly.app/track/${selected.id.toLowerCase()}`);
+    navigator.clipboard?.writeText(getTrackerUrl(selected));
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
   };
@@ -405,7 +432,7 @@ export default function InvoiceTrackerPage() {
                 <div style={{ fontSize: 11, color: "#9AA7C2", marginBottom: 6, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Shareable Tracker Link</div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <div style={{ flex: 1, fontFamily: "monospace", fontSize: 12, color: "#5B2A9E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    ledgerly.app/track/{selected.id.toLowerCase()}
+                    {getTrackerUrl(selected)}
                   </div>
                   <button
                     onClick={handleCopyLink}

@@ -5,6 +5,7 @@ import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import HomePage from "./pages/HomePage";
+import TrackerPublicPage from "./pages/TrackerPublicPage";
 import PageTransition from "./components/PageTransition";
 
 function App() {
@@ -61,6 +62,16 @@ function App() {
                 <SignupPage onLogin={handleLogin} />
               </PageTransition>
             )
+          }
+        />
+
+        {/* Public tracker page — no login required, this is what clients see */}
+        <Route
+          path="/track/:invoiceNumber"
+          element={
+            <PageTransition keyName="track">
+              <TrackerPublicPage />
+            </PageTransition>
           }
         />
 
