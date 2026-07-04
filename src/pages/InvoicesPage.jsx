@@ -64,6 +64,8 @@ export default function InvoicesPage() {
       displayId: inv.invoice_number,
       client: client ? client.name : `Client #${inv.client_id}`,
       email: client ? client.email : "",
+      client_phone: client ? client.phone : "",
+      client_address: client ? client.location : "",
       avatar: initials(client ? client.name : "?"),
       issued: formatDate(inv.issued_date),
       due: formatDate(inv.due_date),
@@ -266,7 +268,7 @@ export default function InvoicesPage() {
                 <td style={styles.td}>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => setViewInvoice(inv)} style={{ background: "none", border: "1.5px solid #E2E8F4", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#5B2A9E", cursor: "pointer" }}>View</button>
-                    <button onClick={() => downloadInvoicePDF(inv)} style={{ background: "none", border: "1.5px solid #E2E8F4", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#5B2A9E", cursor: "pointer" }}>⬇ PDF</button>
+                    <button onClick={() => { console.log("Invoice data:", JSON.stringify(inv, null, 2)); downloadInvoicePDF(inv); }} style={{ background: "none", border: "1.5px solid #E2E8F4", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#5B2A9E", cursor: "pointer" }}>⬇ PDF</button>
                   </div>
                 </td>
               </tr>

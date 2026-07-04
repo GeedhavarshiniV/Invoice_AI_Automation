@@ -31,6 +31,7 @@ export const api = {
   updateClientState: (id, state) => request("/clients/" + id + "/state", { method: "PATCH", body: JSON.stringify({ state }) }),
   getInvoices: () => request("/invoices/"),
   getInvoice: (id) => request("/invoices/" + id),
+  trackInvoice: (invoiceNumber) => request("/invoices/track/" + invoiceNumber),
   createInvoice: (invoice) => request("/invoices/", { method: "POST", body: JSON.stringify(invoice) }),
   updateInvoiceStatus: (id, status) => request("/invoices/" + id + "/status", { method: "PATCH", body: JSON.stringify({ status }) }),
   deleteInvoice: (id) => request("/invoices/" + id, { method: "DELETE" }),

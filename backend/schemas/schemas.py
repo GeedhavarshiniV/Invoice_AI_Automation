@@ -88,3 +88,24 @@ class ExtensionOut(BaseModel):
     created_at: datetime
     class Config:
         from_attributes = True
+
+# NEW — public, no-auth response shape for the shareable tracker link
+class InvoiceTrackOut(BaseModel):
+    invoice_number: str
+    amount: float
+    total_amount: float
+    status: str
+    issued_date: datetime
+    due_date: datetime
+    paid_date: Optional[datetime]
+    description: Optional[str]
+    category: Optional[str]
+    tax_type: Optional[str]
+    cgst: float
+    sgst: float
+    igst: float
+    total_gst: float
+    client_name: str
+    client_email: str
+    class Config:
+        from_attributes = True
