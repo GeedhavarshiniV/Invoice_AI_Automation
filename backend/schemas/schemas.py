@@ -11,11 +11,22 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class UserOut(BaseModel):
+    name: str
+    email: str
+
+class GoogleLogin(BaseModel):
+    credential: str
+
 class Token(BaseModel):
     access_token: str
     token_type: str
+    user: UserOut
+'''class Token(BaseModel):
+    access_token: str
+    token_type: str
     user_name: str
-    user_email: str
+    user_email: str'''
 
 class ClientCreate(BaseModel):
     name: str
