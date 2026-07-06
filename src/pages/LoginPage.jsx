@@ -140,14 +140,7 @@ export default function LoginPage({ onLogin }) {
         {/* LEFT PANEL */}
         <div className="left-panel" style={styles.leftPanel}>
           <div style={styles.leftTop}>
-            <div style={styles.logoMarkLight}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <rect x="3" y="2" width="18" height="20" rx="2" stroke="#FFB199" strokeWidth="1.7"/>
-                <line x1="7" y1="7" x2="17" y2="7" stroke="#FFB199" strokeWidth="1.7" strokeLinecap="round"/>
-                <line x1="7" y1="11" x2="17" y2="11" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
-                <line x1="7" y1="15" x2="13" y2="15" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
-              </svg>
-            </div>
+            <img src="/logo.png" alt="Ledgerly" style={styles.logoMarkLight} />
             <span style={styles.brandNameLight}>Ledgerly</span>
           </div>
 
@@ -265,7 +258,7 @@ const styles = {
   shell: { minHeight:"100vh", display:"flex" },
   leftPanel: { flex:"1 1 50%", background:"linear-gradient(160deg,#1A1140 0%,#3B1F73 55%,#5B2A9E 100%)", padding:"56px 56px", display:"flex", flexDirection:"column", justifyContent:"flex-start", minHeight:"100vh", boxSizing:"border-box" },
   leftTop: { display:"flex", alignItems:"center", gap:10 },
-  logoMarkLight: { width:34, height:34, borderRadius:9, background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.28)", display:"flex", alignItems:"center", justifyContent:"center" },
+  logoMarkLight: { width:34, height:34, borderRadius:9, objectFit:"cover" },
   brandNameLight: { fontFamily:"'Space Grotesk',sans-serif", fontWeight:700, fontSize:19, color:"#fff", letterSpacing:"-0.3px" },
   leftMid: { maxWidth:420, marginTop:56 },
   leftHeading: { fontFamily:"'Space Grotesk',sans-serif", fontWeight:600, fontSize:30, lineHeight:1.25, color:"#fff", margin:"0 0 16px", letterSpacing:"-0.5px" },

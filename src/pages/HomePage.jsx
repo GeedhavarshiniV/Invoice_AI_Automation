@@ -296,14 +296,7 @@ export default function HomePage({ user, onLogout }) {
         <div style={styles.sidebar}>
           <div style={styles.sidebarTop}>
             <div style={styles.logoRow}>
-              <div style={styles.logoIcon}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="2" width="18" height="20" rx="2" stroke="#FFB199" strokeWidth="1.7"/>
-                  <line x1="7" y1="7" x2="17" y2="7" stroke="#FFB199" strokeWidth="1.7" strokeLinecap="round"/>
-                  <line x1="7" y1="11" x2="17" y2="11" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
-                  <line x1="7" y1="15" x2="13" y2="15" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
-                </svg>
-              </div>
+              <img src="/logo.png" alt="Ledgerly" style={styles.logoIcon} />
               <span style={styles.logoText}>Ledgerly</span>
             </div>
           </div>
@@ -604,7 +597,7 @@ const styles = {
   sidebar: { width: 240, background: "linear-gradient(180deg,#1A1140 0%,#3B1F73 100%)", display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, height: "100vh", zIndex: 100 },
   sidebarTop: { padding: "24px 20px 16px" },
   logoRow: { display: "flex", alignItems: "center", gap: 10 },
-  logoIcon: { width: 34, height: 34, borderRadius: 9, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.28)", display: "flex", alignItems: "center", justifyContent: "center" },
+  logoIcon: { width: 34, height: 34, borderRadius: 9, objectFit: "cover" },
   logoText: { fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 18, color: "#fff", letterSpacing: "-0.3px" },
   sidebarNav: { flex: 1, padding: "8px 12px", overflowY: "auto" },
   navSection: { fontSize: 10.5, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "1.2px", padding: "0 4px", margin: "8px 0 6px" },
