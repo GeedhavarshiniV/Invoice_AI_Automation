@@ -14,6 +14,7 @@ import InvoiceTrackerPage from "./InvoiceTrackerPage";
 import DeadlineMessagesPage from "./DeadlineMessagesPage";
 import FraudDetectorPage from "./FraudDetectorPage";
 import HelpPage from "./HelpPage";
+import SmartInvoiceUpload from "./SmartInvoiceUpload";
 
 const STATUS_COLOR = {
   Paid:     { bg: "#DCFCE7", color: "#15803D" },
@@ -27,6 +28,7 @@ const SECTION_VARIANT = {
   "Invoices":     "slideLeft",
   "Clients":      "slideRight",
   "AI Agent":     "scaleIn",
+  "Smart Upload": "fadeUp",
   "Extensions":   "dropIn",
   "Tracker":      "zoomFade",
   "Messages":     "slideLeft",
@@ -41,6 +43,7 @@ const SECTION_AMBIENT = {
   "Invoices":     { speed: 50, direction: "horizontal", density: "normal" },
   "Clients":      { speed: 45, direction: "horizontal", density: "sparse" },
   "AI Agent":     { speed: 60, direction: "diagonal",   density: "dense" },
+  "Smart Upload": { speed: 40, direction: "vertical",   density: "normal" },
   "Extensions":   { speed: 35, direction: "vertical",   density: "sparse" },
   "Tracker":      { speed: 55, direction: "diagonal",   density: "normal" },
   "Messages":     { speed: 40, direction: "horizontal", density: "normal" },
@@ -177,6 +180,7 @@ export default function HomePage({ user, onLogout }) {
     { icon: "📄", label: "Invoices" },
     { icon: "👥", label: "Clients" },
     { icon: "🤖", label: "AI Agent" },
+    { icon: "📥", label: "Smart Upload" },
     { icon: "🗓", label: "Extensions" },
     { icon: "🔍", label: "Tracker" },
     { icon: "⏰", label: "Messages" },
@@ -563,6 +567,10 @@ export default function HomePage({ user, onLogout }) {
 
           <ScrollSection id="section-ai-agent" label="AI Agent" variant={SECTION_VARIANT["AI Agent"]} ambient={SECTION_AMBIENT["AI Agent"]} ref={(el) => (sectionRefs.current["AI Agent"] = el)}>
             <AIAgentPage />
+          </ScrollSection>
+
+          <ScrollSection id="section-smart-upload" label="Smart Upload" variant={SECTION_VARIANT["Smart Upload"]} ambient={SECTION_AMBIENT["Smart Upload"]} ref={(el) => (sectionRefs.current["Smart Upload"] = el)}>
+            <SmartInvoiceUpload />
           </ScrollSection>
 
           <ScrollSection id="section-extensions" label="Extensions" variant={SECTION_VARIANT["Extensions"]} ambient={SECTION_AMBIENT["Extensions"]} ref={(el) => (sectionRefs.current["Extensions"] = el)}>
