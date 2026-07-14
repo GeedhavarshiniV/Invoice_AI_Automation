@@ -133,7 +133,7 @@ export default function HomePage({ user, onLogout }) {
     inv.id.toLowerCase().includes(search.toLowerCase()) ||
     inv.status.toLowerCase().includes(search.toLowerCase())
   );
-
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   // Stat cards from /reports/summary
   const STATS = summary ? [
     { label: "Total Billed", value: fmtCurrency(summary.total_billed), icon: "📋", color: "#5B2A9E" },
@@ -300,15 +300,8 @@ export default function HomePage({ user, onLogout }) {
         <div style={styles.sidebar}>
           <div style={styles.sidebarTop}>
             <div style={styles.logoRow}>
-              <div style={styles.logoIcon}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="2" width="18" height="20" rx="2" stroke="#FFB199" strokeWidth="1.7"/>
-                  <line x1="7" y1="7" x2="17" y2="7" stroke="#FFB199" strokeWidth="1.7" strokeLinecap="round"/>
-                  <line x1="7" y1="11" x2="17" y2="11" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
-                  <line x1="7" y1="15" x2="13" y2="15" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <span style={styles.logoText}>Ledgerly</span>
+              <img src="/logo.png" alt="Invonix" style={{ height: 34, width: 34, borderRadius: 9, objectFit: "cover" }} />
+<span style={styles.logoText}>Invonix</span>
             </div>
           </div>
 
@@ -344,7 +337,12 @@ export default function HomePage({ user, onLogout }) {
                 <p style={styles.userName}>{user?.name || "Admin"}</p>
                 <p style={styles.userEmail}>{user?.email || ""}</p>
               </div>
-              <button onClick={onLogout} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.5)", fontSize: 18, padding: 4 }} title="Logout">⏻</button>
+              <button onClick={() => setShowLogoutModal(true)}
+  style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.5)", fontSize: 18, padding: 4 }}
+  title="Logout"
+>
+  ⏻
+</button>
             </div>
           </div>
         </div>
@@ -601,7 +599,53 @@ export default function HomePage({ user, onLogout }) {
             <HelpPage />
           </ScrollSection>
         </div>
-      </div>
+     </div>
+
+      {showLogoutModal && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(26,17,64,0.7)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
+          backdropFilter: "blur(4px)"
+        }}>
+          <div style={{
+            background: "#fff", borderRadius: 16, padding: "32px 36px",
+            boxShadow: "0 20px 60px rgba(91,42,158,0.25)", border: "1px solid #F0EAF8",
+            maxWidth: 360, width: "90%", textAlign: "center"
+          }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>⏻</div>
+            <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 20, fontWeight: 700, color: "#1A1140", margin: "0 0 8px" }}>
+              Log out?
+            </h2>
+            <p style={{ fontSize: 14, color: "#6B7894", margin: "0 0 28px" }}>
+              Are you sure you want to log out of your account?
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                style={{
+                  flex: 1, padding: "11px 0", borderRadius: 9, border: "1.5px solid #E2E8F4",
+                  background: "#fff", color: "#2A3554", fontSize: 14, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "'Inter',sans-serif"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowLogoutModal(false); onLogout(); }}
+                style={{
+                  flex: 1, padding: "11px 0", borderRadius: 9, border: "none",
+                  background: "linear-gradient(120deg,#FF6B81,#FF9472)", color: "#fff",
+                  fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  fontFamily: "'Space Grotesk',sans-serif",
+                  boxShadow: "0 6px 16px rgba(255,107,129,0.35)"
+                }}
+              >
+                Log out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

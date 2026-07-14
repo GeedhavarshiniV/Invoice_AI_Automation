@@ -151,15 +151,8 @@ export default function LoginPage({ onLogin }) {
         {/* LEFT PANEL */}
         <div className="left-panel" style={styles.leftPanel}>
           <div style={styles.leftTop}>
-            <div style={styles.logoMarkLight}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <rect x="3" y="2" width="18" height="20" rx="2" stroke="#FFB199" strokeWidth="1.7"/>
-                <line x1="7" y1="7" x2="17" y2="7" stroke="#FFB199" strokeWidth="1.7" strokeLinecap="round"/>
-                <line x1="7" y1="11" x2="17" y2="11" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
-                <line x1="7" y1="15" x2="13" y2="15" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
-              </svg>
-            </div>
-            <span style={styles.brandNameLight}>Ledgerly</span>
+              <img src="/logo.png" alt="Invonix" style={{ height: 34, width: 34, borderRadius: 9, objectFit: "cover" }} />
+              <span style={styles.logoText}>Invonix</span>
           </div>
 
           <div style={styles.leftMid}>

@@ -132,15 +132,8 @@ export default function LandingPage() {
       <header style={styles.nav} className="lp-nav">
         <div style={styles.navInner}>
           <div style={styles.logoRow}>
-            <div style={styles.logoIcon}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <rect x="3" y="2" width="18" height="20" rx="2" stroke="#FFB199" strokeWidth="1.7" />
-                <line x1="7" y1="7" x2="17" y2="7" stroke="#FFB199" strokeWidth="1.7" strokeLinecap="round" />
-                <line x1="7" y1="11" x2="17" y2="11" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" />
-                <line x1="7" y1="15" x2="13" y2="15" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" />
-              </svg>
-            </div>
-            <span style={styles.logoText}>Ledgerly</span>
+            <img src="/logo.png" alt="Invonix" style={{ height: 34, width: 34, borderRadius: 9, objectFit: "cover" }} />
+              <span style={styles.logoText}>Invonix</span>
           </div>
           <nav className="lp-nav-links" style={styles.navLinks}>
             <a href="#features" style={styles.navLink}>Features</a>
@@ -249,15 +242,8 @@ export default function LandingPage() {
       {/* FOOTER */}
       <footer style={styles.footer}>
         <div style={styles.logoRow}>
-          <div style={styles.logoIcon}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="2" width="18" height="20" rx="2" stroke="#FFB199" strokeWidth="1.7" />
-              <line x1="7" y1="7" x2="17" y2="7" stroke="#FFB199" strokeWidth="1.7" strokeLinecap="round" />
-              <line x1="7" y1="11" x2="17" y2="11" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" />
-              <line x1="7" y1="15" x2="13" y2="15" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" />
-            </svg>
-          </div>
-          <span style={{ ...styles.logoText, fontSize: 15 }}>Ledgerly</span>
+          <img src="/logo.png" alt="Invonix" style={{ height: 34, width: 34, borderRadius: 9, objectFit: "cover" }} />
+<span style={styles.logoText}>Invonix</span>
         </div>
         <p style={styles.footerText}>© {new Date().getFullYear()} Ledgerly. AI-powered invoice automation.</p>
       </footer>
